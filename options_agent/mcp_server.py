@@ -217,18 +217,24 @@ def serve(mcp_app: Any | None = None) -> Any:
     Args:
         mcp_app: optional, a compatible MCP app object (e.g. FastMCP). If None, the
             `mcp` SDK is imported and a FastMCP server named "optivio" is created.
+
+    Supports both mcp 1.x (`mcp.server.fastmcp.FastMCP`) and mcp 2.x
+    (`mcp.server.mcpserver.MCPServer`). The latter is preferred when available.
     """
     if mcp_app is not None:
         _register_with_mcp(mcp_app)
         return mcp_app
     try:
-        from mcp.server.fastmcp import FastMCP
+        try:
+            from mcp.server.mcpserver import MCPServer as _MCPApp
+        except ImportError:
+            from mcp.server.fastmcp import FastMCP as _MCPApp
     except ImportError as exc:  # pragma: no cover - exercised only when SDK absent
         raise ImportError(
             "Install the optional MCP dependency to run the Optivio MCP server: "
             "`pip install 'optivio[mcp]'` (or `mcp`)."
         ) from exc
-    app = FastMCP("optivio")
+    app = _MCPApp("optivio")
     _register_with_mcp(app)
     return app
 
