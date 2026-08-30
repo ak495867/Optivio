@@ -1,0 +1,17 @@
+[package]
+name = "optivio-ffi"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+[lib]
+crate-type = ["cdylib"]
+
+# This crate is the thin C-ABI boundary for `optivio-risk`. It must touch raw
+# pointers to marshal caller buffers, so unsafe is allowed here and only here; the
+# core risk logic remains in the `forbid(unsafe_code)` `optivio-risk` library.
+[lints.rust]
+unsafe_code = "allow"
+
+[dependencies]
+optivio-risk = { path = "../optivio-risk" }
