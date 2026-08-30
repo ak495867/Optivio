@@ -5,7 +5,7 @@ import os
 from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Any
-
+from alpaca.data.enums import OptionsFeed
 from options_agent.data.alpaca_resilient import AlpacaStreamSupervisor
 from options_agent.execution.lifecycle_engine import BrokerSnapshot, MultiLegPackage
 from options_agent.execution.reconciliation import BrokerReconciler
@@ -93,7 +93,7 @@ def alpaca_paper_stream_smoke_test(
 
     def factory(api_key: str, secret_key: str) -> Any:
         feed = os.environ.get("ALPACA_OPTIONS_FEED", "indicative")
-        return OptionDataStream(api_key, secret_key, feed=feed)
+        return OptionDataStream(api_key, secret_key, feed=feed=OptionsFeed.IEX )
 
     async def subscribe(stream: Any, requested: list[str]) -> None:
         stream.subscribe_quotes(on_quote, *requested)
