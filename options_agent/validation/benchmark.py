@@ -25,8 +25,8 @@ def zero_shot_metrics(
 ) -> BenchmarkReport:
     r = np.asarray(returns, dtype=float)
     lat = np.asarray(latencies_ns, dtype=float)  # <--- Changed 'l' to 'lat'
-    
-    if r.size == 0 or lat.size == 0:             # <--- Updated the check below
+
+    if r.size == 0 or lat.size == 0:  # <--- Updated the check below
         raise ValueError("benchmark arrays must be non-empty")
     curve = np.cumprod(1.0 + r)
     dd = curve / np.maximum.accumulate(curve) - 1.0

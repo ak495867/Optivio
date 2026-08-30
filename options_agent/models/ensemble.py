@@ -29,9 +29,7 @@ class GraphNetwork:
         self.weights = np.linalg.solve(gram, flat_x.T @ flat_y)
         return self
 
-    def _design(
-        self, x: np.ndarray
-    ) -> np.ndarray:
+    def _design(self, x: np.ndarray) -> np.ndarray:
         a = np.asarray(self.adjacency, dtype=float)
         deg = a.sum(axis=1, keepdims=True).clip(min=1)
         msg = (a / deg) @ x.mean(axis=0)

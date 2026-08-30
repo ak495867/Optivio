@@ -49,6 +49,7 @@ def _adapter() -> Any:
         _adapter_instance.attach_quote_store(_get_quote_store())
     return _adapter_instance
 
+
 def _risk_gate() -> RiskGate:
     # Load limits from the environment so the same knobs the shell sets drive the MCP path.
     return RiskGate(RiskLimits.from_env())
@@ -57,6 +58,7 @@ def _risk_gate() -> RiskGate:
 # ---------------------------------------------------------------------------
 # Tool implementations (pure functions; safe to call directly, no SDK required).
 # ---------------------------------------------------------------------------
+
 
 def mcp_get_account() -> dict[str, Any]:
     """Return the paper account equity, buying power, and open-options notional."""

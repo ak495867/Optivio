@@ -55,7 +55,9 @@ def _num(
     return value
 
 
-def _int(source: Mapping[str, str], key: str, default: int, lo: int | None = None) -> int:
+def _int(
+    source: Mapping[str, str], key: str, default: int, lo: int | None = None
+) -> int:
     raw = source.get(key, "")
     try:
         value = int(raw)
@@ -139,9 +141,7 @@ def load_settings(env: Mapping[str, str] | None = None) -> Settings:
         model_version=_str(
             source, "OPTIVIO_MODEL_VERSION", "optivio-hive-kronos-v0.1.0"
         ),
-        max_order_notional=_num(
-            source, "OPTIVIO_MAX_ORDER_NOTIONAL", 2500.0, lo=0.0
-        ),
+        max_order_notional=_num(source, "OPTIVIO_MAX_ORDER_NOTIONAL", 2500.0, lo=0.0),
         max_open_notional=_num(source, "OPTIVIO_MAX_OPEN_NOTIONAL", 10000.0, lo=0.0),
         max_daily_loss_fraction=_num(
             source, "OPTIVIO_MAX_DAILY_LOSS_FRACTION", 0.02, lo=0.0

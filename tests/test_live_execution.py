@@ -21,11 +21,11 @@ def test_event_bus_rejects_non_monotonic_sequence():
 
     bus = BoundedEventBus(2)
     t = datetime(2026, 1, 1, tzinfo=UTC)
-    
+
     # Replace the lambda with a standard function definition
     def e(n):
         return MarketEvent("quote", "A", t, t, n, {})
-        
+
     assert bus.publish_nowait(e(1))
     assert not bus.publish_nowait(e(1))
 

@@ -50,7 +50,6 @@ class ContinuousReconciliation:
                 else "material broker drift; exposure blocked"
             )
         except Exception as error:
-
             ok, detail = False, f"broker check failed: {type(error).__name__}"
         self.exposure_blocked = not ok
         self.last_check = LiveCheck("broker_reconciliation", ok, detail)

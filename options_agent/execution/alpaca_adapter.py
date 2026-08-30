@@ -4,7 +4,13 @@ import os
 from datetime import datetime
 from typing import Any
 
-from options_agent.contracts import OptionContract, OptionRight, OrderIntent, RiskSnapshot, RunMode
+from options_agent.contracts import (
+    OptionContract,
+    OptionRight,
+    OrderIntent,
+    RiskSnapshot,
+    RunMode,
+)
 from options_agent.data.quote_store import QuoteStore, build_quote_from_snapshot
 
 
@@ -73,7 +79,9 @@ class AlpacaPaperAdapter:
                 until=today,
             )
             for act in activities or []:
-                ts = getattr(act, "transaction_time", None) or getattr(act, "date", None)
+                ts = getattr(act, "transaction_time", None) or getattr(
+                    act, "date", None
+                )
                 if ts is None:
                     continue
                 if getattr(ts, "tzinfo", None) is None:  # naive -> assume UTC
@@ -110,7 +118,9 @@ class AlpacaPaperAdapter:
             from alpaca.data.timeframe import TimeFrame
         except ImportError as exc:
             raise ImportError("install the optional alpaca dependency") from exc
-        request = OptionBarsRequest(symbol_or_symbols=symbols, timeframe=TimeFrame.Day, start=start, end=end)
+        request = OptionBarsRequest(
+            symbol_or_symbols=symbols, timeframe=TimeFrame.Day, start=start, end=end
+        )
         return self._data.get_option_bars(request)
 
     def get_option_contract(self, symbol: str) -> OptionContract:

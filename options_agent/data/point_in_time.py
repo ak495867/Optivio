@@ -22,7 +22,11 @@ def validate_point_in_time(df: pd.DataFrame) -> None:
 
 
 def assert_no_future_rows(df: pd.DataFrame, cutoff: datetime) -> None:
-    cutoff = pd.Timestamp(cutoff, tz="UTC") if pd.Timestamp(cutoff).tz is None else pd.Timestamp(cutoff)
+    cutoff = (
+        pd.Timestamp(cutoff, tz="UTC")
+        if pd.Timestamp(cutoff).tz is None
+        else pd.Timestamp(cutoff)
+    )
     asof = pd.to_datetime(df["asof"], utc=True)
     available = pd.to_datetime(df["available_at"], utc=True)
     if ((asof > cutoff) | (available > cutoff)).any():
@@ -106,5 +110,5 @@ def purged_walk_forward(
 def lagged_return(close: pd.Series, horizon: int = 1) -> pd.Series:
     if horizon <= 0:
         raise ValueError("horizon must be positive")
-                                                                                                  
+
     return close.shift(-horizon) / close - 1.0

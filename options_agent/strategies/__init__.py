@@ -1,1 +1,1 @@
-from options_agent.strategies.baselines import baseline_registry
+from options_agent.strategies.baselines import baseline_registry as baseline_registry

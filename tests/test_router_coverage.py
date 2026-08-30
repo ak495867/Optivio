@@ -4,12 +4,19 @@
 - GroqManager: structured alt-data interpretation + the temperature knob.
 - AlpacaPaperAdapter: account snapshot, bars request guard, paper-only submission.
 """
+
 from datetime import UTC, datetime
 from types import SimpleNamespace
 
 import pytest
 
-from options_agent.contracts import OrderIntent, OptionContract, OptionRight, Quote, Side
+from options_agent.contracts import (
+    OrderIntent,
+    OptionContract,
+    OptionRight,
+    Quote,
+    Side,
+)
 from options_agent.execution.alpaca_adapter import AlpacaPaperAdapter
 from options_agent.execution.smart_router import SmartRouter
 from options_agent.orchestration.groq_manager import GroqManager
@@ -65,7 +72,9 @@ def test_smart_router_picks_lowest_cost_quote():
     router = SmartRouter()
     quotes = [
         quote("AAPL250221C00200000", bid=1.00, ask=1.10, size=5),
-        quote("AAPL250221C00200000", bid=1.90, ask=2.10, size=5),  # wider spread -> higher cost
+        quote(
+            "AAPL250221C00200000", bid=1.90, ask=2.10, size=5
+        ),  # wider spread -> higher cost
     ]
     dec = router.choose(quotes, order())
     assert dec is not None and dec.symbol == "AAPL250221C00200000"
@@ -129,7 +138,9 @@ def test_groq_manager_assesses_alt_data_and_passes_temperature(monkeypatch):
     )
     # Ensure connect() is never invoked (client is pre-set).
     monkeypatch.setattr(mgr, "connect", lambda: pytest.fail("should not reconnect"))
-    assessment = mgr.assess_alt_data("some text", ["src-a"], "2026-08-30T00:00:00+00:00")
+    assessment = mgr.assess_alt_data(
+        "some text", ["src-a"], "2026-08-30T00:00:00+00:00"
+    )
     assert assessment.topic == "earnings" and assessment.sentiment == pytest.approx(0.4)
     assert assessment.source_ids == ["src-a"] and assessment.abstain is False
     assert mgr.client.received_temperature == 0.0
@@ -207,7 +218,9 @@ def test_alpaca_account_snapshot_returns_risk(monkeypatch):
     trading = _FakeTrading()
     adapter._trading = trading
     matching_pos = SimpleNamespace(
-        asset_class=AssetClass.US_OPTION, qty="2", multiplier=100,
+        asset_class=AssetClass.US_OPTION,
+        qty="2",
+        multiplier=100,
         market_value="600.0",
     )
     other_pos = SimpleNamespace(

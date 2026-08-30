@@ -74,8 +74,9 @@ def implied_volatility(
         or tau <= 0
     ):
         return None
-    discount_spot, discount_strike = spot * math.exp(-carry * tau), strike * math.exp(
-        -rate * tau
+    discount_spot, discount_strike = (
+        spot * math.exp(-carry * tau),
+        strike * math.exp(-rate * tau),
     )
     sign = 1.0 if right == OptionRight.CALL else -1.0
     lower = max(0.0, sign * (discount_spot - discount_strike))

@@ -18,6 +18,7 @@ class StreamHealth:
 @dataclass
 class AlpacaStreamSupervisor:
     """Supervise the SDK stream; the factory must construct a fresh authenticated stream."""
+
     stream_factory: Callable[[str, str], Any]
     subscribe: Callable[[Any, list[str]], Awaitable[None]]
     symbols: list[str]
@@ -61,7 +62,7 @@ class AlpacaStreamSupervisor:
                 raise
 
     async def _serve(self, stream: Any) -> None:
-                                                                                              
+
         runner = getattr(stream, "run_async", None)
         if runner is not None:
             await runner()

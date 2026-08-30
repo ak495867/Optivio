@@ -20,8 +20,9 @@ class PortfolioManager:
     def target_weights(
         self, scores: np.ndarray, vol: np.ndarray, regime_scale: float = 1.0
     ) -> np.ndarray:
-        scores, vol = np.asarray(scores, dtype=float), np.maximum(
-            np.asarray(vol, dtype=float), 1e-6
+        scores, vol = (
+            np.asarray(scores, dtype=float),
+            np.maximum(np.asarray(vol, dtype=float), 1e-6),
         )
         if scores.shape != vol.shape:
             raise ValueError("scores and vol must have equal shape")

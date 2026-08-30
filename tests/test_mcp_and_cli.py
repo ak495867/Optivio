@@ -3,6 +3,7 @@
 The MCP server is import-safe without the optional ``mcp`` SDK. Tool calls that
 need the SDK raise a clear ``ImportError`` directing the operator to install it.
 """
+
 import json
 from datetime import UTC, datetime
 

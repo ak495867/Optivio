@@ -72,9 +72,7 @@ class MultiLegExecutionEngine:
         # package's own pre-existing holdings (current_greeks) count as part of the
         # baseline it adds to the portfolio.
         portfolio_current = self._portfolio_greeks() + package.current_greeks
-        approved, reason = self.greeks_gate.approve(
-            portfolio_current, proposed_greeks
-        )
+        approved, reason = self.greeks_gate.approve(portfolio_current, proposed_greeks)
         if not approved:
             return False, reason
         # Persist the approved exposure so the portfolio aggregate reflects it.

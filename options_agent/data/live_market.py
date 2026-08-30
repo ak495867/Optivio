@@ -23,6 +23,7 @@ class MarketEvent:
 
 class BoundedEventBus:
     """Bounded fan-out bus with backpressure and sequence/deduplication guards."""
+
     def __init__(self, maxsize: int = 10000):
         if maxsize <= 0:
             raise ValueError("maxsize must be positive")
@@ -37,7 +38,9 @@ class BoundedEventBus:
             self.rejected += 1
             return False
         stream = (event.kind, event.symbol)
-        if event.key in self._seen or event.sequence <= self._last_sequence.get(stream, -1):
+        if event.key in self._seen or event.sequence <= self._last_sequence.get(
+            stream, -1
+        ):
             self.rejected += 1
             return False
         if self.queue.full():
@@ -55,7 +58,9 @@ class BoundedEventBus:
             self.rejected += 1
             return False
         stream = (event.kind, event.symbol)
-        if event.key in self._seen or event.sequence <= self._last_sequence.get(stream, -1):
+        if event.key in self._seen or event.sequence <= self._last_sequence.get(
+            stream, -1
+        ):
             self.rejected += 1
             return False
         try:
@@ -95,24 +100,40 @@ class OptionContractRecord:
     @classmethod
     def from_alpaca(cls, item: Mapping[str, Any]) -> OptionContractRecord:
         return cls(
-            symbol=str(item["symbol"]), underlying_symbol=str(item.get("underlying_symbol", item.get("root_symbol", ""))),
-            expiration_date=date.fromisoformat(str(item["expiration_date"])), strike_price=float(item["strike_price"]),
-            right=str(item["type"]), multiplier=int(float(item["multiplier"])), size=int(float(item["size"])),
-            status=str(item["status"]), tradable=bool(item["tradable"]), style=str(item["style"]),
-            open_interest=float(item["open_interest"]) if item.get("open_interest") is not None else None,
-            open_interest_date=date.fromisoformat(str(item["open_interest_date"])) if item.get("open_interest_date") else None,
+            symbol=str(item["symbol"]),
+            underlying_symbol=str(
+                item.get("underlying_symbol", item.get("root_symbol", ""))
+            ),
+            expiration_date=date.fromisoformat(str(item["expiration_date"])),
+            strike_price=float(item["strike_price"]),
+            right=str(item["type"]),
+            multiplier=int(float(item["multiplier"])),
+            size=int(float(item["size"])),
+            status=str(item["status"]),
+            tradable=bool(item["tradable"]),
+            style=str(item["style"]),
+            open_interest=float(item["open_interest"])
+            if item.get("open_interest") is not None
+            else None,
+            open_interest_date=date.fromisoformat(str(item["open_interest_date"]))
+            if item.get("open_interest_date")
+            else None,
         )
 
 
 class ContractMaster:
     """In-memory validated contract master; refresh is injected for testability."""
+
     def __init__(self):
         self._contracts: dict[str, OptionContractRecord] = {}
 
     def upsert(self, record: OptionContractRecord) -> None:
         if record.strike_price <= 0 or record.multiplier <= 0 or record.size <= 0:
             raise ValueError("invalid contract economics")
-        if record.right not in {"call", "put"} or record.status not in {"active", "inactive"}:
+        if record.right not in {"call", "put"} or record.status not in {
+            "active",
+            "inactive",
+        }:
             raise ValueError("invalid contract classification")
         self._contracts[record.symbol] = record
 
@@ -125,24 +146,42 @@ class ContractMaster:
         return self._contracts[symbol]
 
     def active_for(self, underlying: str, asof: date) -> list[OptionContractRecord]:
-        return sorted((r for r in self._contracts.values() if r.underlying_symbol == underlying and r.status == "active" and r.tradable and r.expiration_date >= asof), key=lambda r: (r.expiration_date, r.strike_price, r.right))
+        return sorted(
+            (
+                r
+                for r in self._contracts.values()
+                if r.underlying_symbol == underlying
+                and r.status == "active"
+                and r.tradable
+                and r.expiration_date >= asof
+            ),
+            key=lambda r: (r.expiration_date, r.strike_price, r.right),
+        )
 
     def __len__(self) -> int:
         return len(self._contracts)
 
 
-async def refresh_contract_master(fetch_page: Callable[[str | None], Awaitable[tuple[list[Mapping[str, Any]], str | None]]], master: ContractMaster) -> int:
+async def refresh_contract_master(
+    fetch_page: Callable[
+        [str | None], Awaitable[tuple[list[Mapping[str, Any]], str | None]]
+    ],
+    master: ContractMaster,
+) -> int:
     token: str | None = None
     total = 0
     while True:
         rows, token = await fetch_page(token)
-        total += master.upsert_many([OptionContractRecord.from_alpaca(row) for row in rows])
+        total += master.upsert_many(
+            [OptionContractRecord.from_alpaca(row) for row in rows]
+        )
         if token is None:
             return total
 
 
 class AlpacaOptionStreamAdapter:
     """Lazy adapter for Alpaca's msgpack option stream; emits validated MarketEvent objects."""
+
     def __init__(self, api_key: str, secret_key: str, feed: str = "indicative"):
         if feed not in {"indicative", "opra"}:
             raise ValueError("feed must be indicative or opra")
@@ -152,17 +191,32 @@ class AlpacaOptionStreamAdapter:
     def connect(self) -> None:
         from alpaca.data.enums import OptionsFeed
         from alpaca.data.live.option import OptionDataStream
+
         selected = OptionsFeed.OPRA if self.feed == "opra" else OptionsFeed.INDICATIVE
         self._stream = OptionDataStream(self.api_key, self.secret_key, feed=selected)
 
-    def subscribe_quotes(self, symbols: list[str], handler: Callable[[MarketEvent], Awaitable[None]]) -> None:
+    def subscribe_quotes(
+        self, symbols: list[str], handler: Callable[[MarketEvent], Awaitable[None]]
+    ) -> None:
         if self._stream is None:
             raise RuntimeError("stream must be connected")
 
         async def on_quote(message: Any) -> None:
             timestamp = message.timestamp
             sequence = int(timestamp.timestamp() * 1_000_000_000)
-            event = MarketEvent("quote", str(message.symbol), timestamp, timestamp, sequence, {"bid": float(message.bid_price), "ask": float(message.ask_price), "bid_size": int(message.bid_size), "ask_size": int(message.ask_size)})
+            event = MarketEvent(
+                "quote",
+                str(message.symbol),
+                timestamp,
+                timestamp,
+                sequence,
+                {
+                    "bid": float(message.bid_price),
+                    "ask": float(message.ask_price),
+                    "bid_size": int(message.bid_size),
+                    "ask_size": int(message.ask_size),
+                },
+            )
             await handler(event)
 
         self._stream.subscribe_quotes(on_quote, *symbols)

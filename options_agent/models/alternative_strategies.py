@@ -154,8 +154,9 @@ class PairsTradingModel:
         design = np.column_stack([np.ones(len(x)), x])
         self.hedge = float(np.linalg.lstsq(design, y, rcond=None)[0][1])
         spread = y - self.hedge * x
-        self.spread_mean, self.spread_std = float(spread.mean()), max(
-            float(spread.std()), 1e-8
+        self.spread_mean, self.spread_std = (
+            float(spread.mean()),
+            max(float(spread.std()), 1e-8),
         )
         return self
 

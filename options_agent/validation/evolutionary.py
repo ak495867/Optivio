@@ -38,8 +38,9 @@ class OptivioEvolutionaryOptimizer:
         upper: np.ndarray,
         config: EvolutionConfig | None = None,
     ):
-        self.lower, self.upper = np.asarray(lower, dtype=float), np.asarray(
-            upper, dtype=float
+        self.lower, self.upper = (
+            np.asarray(lower, dtype=float),
+            np.asarray(upper, dtype=float),
         )
         self.config = config or EvolutionConfig()
         if self.lower.shape != self.upper.shape or np.any(self.lower >= self.upper):

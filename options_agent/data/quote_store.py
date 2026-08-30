@@ -124,6 +124,7 @@ class QuoteStore:
         if self._clock is not None:
             return self._clock()
         from time import monotonic
+
         return monotonic()
 
     def record(self, quote: Quote) -> None:
@@ -139,7 +140,9 @@ class QuoteStore:
         quote = self._quotes.get(symbol)
         if quote is None:
             return None
-        age_limit = max_age_seconds if max_age_seconds is not None else self.max_age_seconds
+        age_limit = (
+            max_age_seconds if max_age_seconds is not None else self.max_age_seconds
+        )
         # Rough recency gate via the injected clock when present; otherwise return
         # the quote as-is (the adapter enforces freshness on live fetches).
         if self._clock is not None:
