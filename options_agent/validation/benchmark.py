@@ -24,13 +24,14 @@ def zero_shot_metrics(
     returns: np.ndarray, latencies_ns: np.ndarray, name: str = "frozen-model"
 ) -> BenchmarkReport:
     r = np.asarray(returns, dtype=float)
-    l = np.asarray(latencies_ns, dtype=float)
-    if r.size == 0 or l.size == 0:
+    lat = np.asarray(latencies_ns, dtype=float)  # <--- Changed 'l' to 'lat'
+    
+    if r.size == 0 or lat.size == 0:             # <--- Updated the check below
         raise ValueError("benchmark arrays must be non-empty")
     curve = np.cumprod(1.0 + r)
     dd = curve / np.maximum.accumulate(curve) - 1.0
     sd = r.std(ddof=1) if r.size > 1 else 0.0
-    p50, p95, p99 = [float(np.percentile(l, q) / 1000.0) for q in (50, 95, 99)]
+    p50, p95, p99 = [float(np.percentile(lat, q) / 1000.0) for q in (50, 95, 99)]
     return BenchmarkReport(
         name,
         int(r.size),

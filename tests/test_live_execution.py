@@ -18,9 +18,14 @@ from options_agent.validation.offline_rl import LoggedTransition, OfflineRLEvalu
 
 
 def test_event_bus_rejects_non_monotonic_sequence():
+
     bus = BoundedEventBus(2)
     t = datetime(2026, 1, 1, tzinfo=UTC)
-    e = lambda n: MarketEvent("quote", "A", t, t, n, {})
+    
+    # Replace the lambda with a standard function definition
+    def e(n):
+        return MarketEvent("quote", "A", t, t, n, {})
+        
     assert bus.publish_nowait(e(1))
     assert not bus.publish_nowait(e(1))
 
