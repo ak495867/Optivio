@@ -5,7 +5,7 @@ from datetime import datetime
 from typing import Any
 
 from options_agent.contracts import OrderIntent, RiskSnapshot, RunMode
-
+from alpaca.data.timeframe import Timeframe
 
 class AlpacaPaperAdapter:
     def __init__(self, api_key: str | None = None, secret_key: str | None = None):
@@ -46,7 +46,7 @@ class AlpacaPaperAdapter:
             from alpaca.data.requests import OptionBarsRequest
         except ImportError as exc:
             raise ImportError("install the optional alpaca dependency") from exc
-        request = OptionBarsRequest(symbol_or_symbols=symbols, start=start, end=end)
+        request = OptionBarsRequest(symbol_or_symbols=symbols, timeframe=Timeframe.Day, start=start, end=end)
         return self._data.get_option_bars(request)
 
     def submit_paper(self, intent: OrderIntent):
