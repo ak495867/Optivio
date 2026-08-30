@@ -65,7 +65,7 @@ def test_serve_requires_mcp_sdk(monkeypatch):
     real_import = builtins.__import__
 
     def deny(name, *args, **kwargs):
-        if name == "mcp.server.fastmcp":
+        if name in ("mcp.server.mcpserver", "mcp.server.fastmcp"):
             raise ImportError("mcp is not installed")
         return real_import(name, *args, **kwargs)
 
