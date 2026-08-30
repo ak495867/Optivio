@@ -27,6 +27,10 @@ jobs:
         run: python -m compileall -q options_agent tests
       - name: Tests
         run: pytest -q
+      - name: MCP/CLI import-safe and tool surface
+        run: |
+          python -c "import options_agent.mcp_server, options_agent.cli; print('import-safe OK')"
+          python -c "from options_agent.mcp_server import serve, mcp_list_all_tools; assert serve() is not None; assert [t['name'] for t in mcp_list_all_tools()] == ['get_account','get_quote','submit_order']; print('tool surface OK')"
       - name: Ruff
         run: ruff check options_agent tests
       - name: Type check
@@ -44,14 +48,14 @@ jobs:
     runs-on: ubuntu-latest
     defaults:
       run:
-        working-directory: rust/optivio-risk
+        working-directory: rust
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
         with:
           components: rustfmt, clippy
       - run: cargo fmt --all -- --check
-      - run: cargo test
+      - run: cargo test --workspace
       - run: cargo clippy --all-targets --all-features -- -D warnings
       - run: cargo install cargo-audit --locked && cargo audit
 
@@ -84,6 +88,9 @@ jobs:
       - name: Verify no credentials and no wall-clock feature calls
         run: |
           ! grep -RInE 'AKIA[0-9A-Z]{16}|sk-[A-Za-z0-9]{20,}|gsk_[A-Za-z0-9]{20,}' options_agent configs tests
-          ! grep -RInE 'datetime\.now|datetime\.today|date\.today|time\.time\(' options_agent
+          # Wall-clock calls are banned in feature construction (data/models/strategies/
+          # training/validation). Broker/ledger/MCP operator timestamping (execution,
+          # orchestration, mcp_server) is intentional and excluded.
+          ! grep -RInE 'datetime\.now|datetime\.today|date\.today|time\.time\(' options_agent/data options_agent/models options_agent/strategies options_agent/training options_agent/validation
       - name: Verify paper guard
         run: grep -RIn 'paper=True' options_agent/execution/alpaca_adapter.py

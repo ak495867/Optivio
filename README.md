@@ -52,6 +52,48 @@ The real `.env` file is excluded by `.gitignore`; only `.env.example` is intende
 
 No credentials are stored in source files, configuration files, logs, or model prompts. Use a secret manager in any persistent deployment. The current adapter should remain paper-only until reconciliation, corporate-action handling, options assignment handling, and operational controls are independently certified.
 
+## Running it
+
+The installed console entrypoints (`optivio` and `optivio-mcp`) come from the
+`[project.scripts]` table; `python -m options_agent.cli` and
+`python -m options_agent.mcp_server` work without an install. Every action is
+gated by `ALPACA_PAPER` (default `1`): set it to anything other than `"1"` and
+the tools refuse to run.
+
+```bash
+cp .env.example .env          # fill ALPACA_API_KEY / ALPACA_SECRET_KEY (paper)
+export ALPACA_PAPER=1
+
+optivio env-check             # keys, paper mode, SDKs, data feed; exit 0/1
+optivio quote AAPL260131C00300000       # latest two-sided quote -> JSON
+optivio submit AAPL260131C00300000 buy 1 1.25   # risk-gated *paper* order
+optivio smoke --seconds 5     # options-stream connectivity test (never orders)
+optivio run                   # orchestrator preflight + sequence (no network)
+```
+
+`env-check` never touches the network. `quote` resolves the contract through
+Alpaca's authoritative option-contracts endpoint, then fetches the latest
+two-sided quote (or returns an explicit `"available": false`). `submit` is the
+**direct paper path**: it builds a real `OrderIntent` from the resolved
+contract, puts it through `RiskGate` (order notional ≤ `OPTIVIO_MAX_ORDER_NOTIONAL`,
+open notional and daily-loss caps), and only then calls the paper `TradingClient`
+(`paper=True`). The `ALPACA_PAPER=1` process guard, `RunMode.PAPER` intent
+default, and the adapter-level paper check form the triple paper guard. `smoke`
+reuses the bounded stream smoke test and never places orders.
+
+### MCP server
+
+```bash
+optivio-mcp                   # JSON-RPC over stdio; entrypoint registered by pip
+```
+
+The server exposes exactly three tools — `get_account`, `get_quote`,
+`submit_order` — all implemented over the same paper-only, risk-gated path the
+CLI uses. Connect it from Claude (or any MCP client) as a stdio server running
+`optivio-mcp`. With the `mcp` SDK present, `python -m options_agent.mcp_server`
+behaves identically; without it, importing the module is still safe and tool
+calls surface a clear "install optivio[mcp]" error.
+
 ## Model readiness
 
 For a component-by-component status report, read `docs/model_readiness_audit.md`. It separates implemented, unit-tested, orchestrated, live-data-capable, and production-ready claims so a passing fixture test is not mistaken for a live trading certification.
