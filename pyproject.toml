@@ -1,0 +1,27 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "optivio"
+version = "0.1.0"
+description = "Optivio: leakage-safe options research and Alpaca paper-trading agent"
+requires-python = ">=3.11"
+dependencies = ["numpy>=1.24", "pandas>=2.0", "pydantic>=2.0"]
+
+[project.optional-dependencies]
+models = ["scikit-learn>=1.3", "torch>=2.0"]
+alpaca = ["alpaca-py>=0.30"]
+groq = ["groq>=0.9"]
+test = ["pytest>=8.0"]
+all = ["scikit-learn>=1.3", "torch>=2.0", "alpaca-py>=0.30", "groq>=0.9", "pytest>=8.0"]
+
+[tool.setuptools.packages.find]
+include = ["options_agent*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
+
+[tool.ruff.lint]
+ignore = ["BLE001"]

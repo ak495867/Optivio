@@ -1,0 +1,11 @@
+[package]
+name = "optivio-risk"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+crate-type = ["rlib"]
+
+[lints.rust]
+unsafe_code = "forbid"
+unused_must_use = "deny"

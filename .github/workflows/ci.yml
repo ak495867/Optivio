@@ -1,0 +1,85 @@
+name: Optivio CI
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  security-events: write
+
+jobs:
+  python:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install
+        run: python -m pip install --upgrade pip && pip install -e '.[all]' ruff mypy bandit pip-audit
+      - name: Compile
+        run: python -m compileall -q options_agent tests
+      - name: Tests
+        run: pytest -q
+      - name: Ruff
+        run: ruff check options_agent tests
+      - name: Type check
+        run: mypy options_agent --ignore-missing-imports
+      - name: Security lint
+        run: bandit -q -r options_agent
+      - name: Dependency audit
+        run: pip-audit
+      - name: Secret scan
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  rust:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: rust/optivio-risk
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+      - run: cargo fmt --all -- --check
+      - run: cargo test
+      - run: cargo clippy --all-targets --all-features -- -D warnings
+      - run: cargo install cargo-audit --locked && cargo audit
+
+  cpp:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Configure sanitizer build
+        run: cmake -S cpp -B cpp/build -DCMAKE_BUILD_TYPE=Debug -DCMAKE_CXX_FLAGS='-fsanitize=address,undefined -fno-omit-frame-pointer'
+      - run: cmake --build cpp/build --parallel
+      - run: ctest --test-dir cpp/build --output-on-failure
+
+  ocaml:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ocaml/setup-ocaml@v3
+        with:
+          ocaml-compiler: '5.1'
+      - run: opam install . --deps-only --with-test
+        working-directory: ocaml/policy
+      - run: opam exec -- dune runtest
+        working-directory: ocaml/policy
+
+  reproducibility:
+    runs-on: ubuntu-latest
+    needs: [python, rust, cpp, ocaml]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify no credentials and no wall-clock feature calls
+        run: |
+          ! grep -RInE 'AKIA[0-9A-Z]{16}|sk-[A-Za-z0-9]{20,}|gsk_[A-Za-z0-9]{20,}' options_agent configs tests
+          ! grep -RInE 'datetime\.now|datetime\.today|date\.today|time\.time\(' options_agent
+      - name: Verify paper guard
+        run: grep -RIn 'paper=True' options_agent/execution/alpaca_adapter.py
