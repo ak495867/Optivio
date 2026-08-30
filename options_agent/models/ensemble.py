@@ -22,26 +22,27 @@ class GraphNetwork:
         a = np.asarray(self.adjacency, dtype=float)
         if a.shape != (x.shape[1], x.shape[1]):
             raise ValueError("adjacency shape must match asset count")
-        deg = a.sum(axis=1, keepdims=True).clip(min=1)
-        msg = (a / deg) @ x.mean(axis=0)
-        design = np.concatenate(
-            [x.mean(axis=1), np.broadcast_to(msg, (len(x), *msg.shape))], axis=2
-        )
+        design = self._design(x)
         flat_x = design.reshape(len(x) * x.shape[1], -1)
         flat_y = y.reshape(-1)
         gram = flat_x.T @ flat_x + self.ridge * np.eye(flat_x.shape[1])
         self.weights = np.linalg.solve(gram, flat_x.T @ flat_y)
         return self
 
-    def predict(self, x: np.ndarray) -> np.ndarray:
-        if self.weights is None:
-            raise RuntimeError("graph network is not fit")
+    def _design(
+        self, x: np.ndarray
+    ) -> np.ndarray:
         a = np.asarray(self.adjacency, dtype=float)
         deg = a.sum(axis=1, keepdims=True).clip(min=1)
         msg = (a / deg) @ x.mean(axis=0)
-        design = np.concatenate(
-            [x.mean(axis=1), np.broadcast_to(msg, (len(x), *msg.shape))], axis=2
-        )
+        node_feat = np.broadcast_to(x.mean(axis=1)[:, None, :], (len(x), *msg.shape))
+        msg_feat = np.broadcast_to(msg[None, ...], (len(x), *msg.shape))
+        return np.concatenate([node_feat, msg_feat], axis=2)
+
+    def predict(self, x: np.ndarray) -> np.ndarray:
+        if self.weights is None:
+            raise RuntimeError("graph network is not fit")
+        design = self._design(x)
         return (design.reshape(len(x) * x.shape[1], -1) @ self.weights).reshape(
             len(x), x.shape[1]
         )
@@ -85,8 +86,10 @@ class HybridSignalModel:
     graph_weight: float = 0.35
 
     def predict(self, graph_x: np.ndarray, tabular_x: np.ndarray) -> np.ndarray:
-        g = self.graph.predict(graph_x)
-        b = self.gbm.predict(tabular_x)
-        if b.ndim == 1 and g.shape[1] == 1:
+        g = np.asarray(self.graph.predict(graph_x))
+        b = np.asarray(self.gbm.predict(tabular_x))
+        if g.ndim == 2 and b.ndim == 1 and g.shape[1] == 1:
             b = b[:, None]
+        if b.ndim == 1 and g.ndim == 2:
+            b = np.broadcast_to(b[:, None], g.shape)
         return self.graph_weight * g + (1.0 - self.graph_weight) * b

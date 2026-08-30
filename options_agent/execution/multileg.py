@@ -3,6 +3,7 @@ from __future__ import annotations
 from collections.abc import Iterable
 from dataclasses import dataclass
 from enum import Enum
+from typing import Any
 
 
 class LegState(str, Enum):
@@ -100,10 +101,25 @@ class GreeksRiskLimits:
     max_abs_vega: float = 5000.0
     max_abs_rho: float = 5000.0
 
+    @classmethod
+    def from_settings(cls, settings: Any = None) -> "GreeksRiskLimits":
+        """Build from the central config so the OPTIVIO_MAX_ABS_* env knobs apply."""
+        if settings is None:
+            from options_agent.config import settings as cfg
+
+            settings = cfg
+        return cls(
+            max_abs_delta=settings.max_abs_delta,
+            max_abs_gamma=settings.max_abs_gamma,
+            max_abs_theta=settings.max_abs_theta,
+            max_abs_vega=settings.max_abs_vega,
+            max_abs_rho=settings.max_abs_rho,
+        )
+
 
 class GreeksRiskGate:
     def __init__(self, limits: GreeksRiskLimits | None = None):
-        self.limits = limits or GreeksRiskLimits()
+        self.limits = limits or GreeksRiskLimits.from_settings()
 
     def approve(self, current: Greeks, proposed_change: Greeks) -> tuple[bool, str]:
         total = current + proposed_change

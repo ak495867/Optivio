@@ -29,6 +29,20 @@ def test_hmm_filters_probabilities():
     assert probs.shape == (2, 2) and np.allclose(probs.sum(axis=1), 1)
 
 
+def test_hmm_variance_is_per_state_not_summed():
+    """The EM variance update must be a per-state element-wise weighted sum.
+    A buggy (gamma.T @ squares).sum(axis=0) form sums every state's weighted
+    contribution into each variance, inflating it by ~state count (4x for 4
+    states). Fit on two clean, well-separated clusters and require each
+    recovered variance to match that cluster's spread."""
+    rng = np.random.default_rng(0)
+    x = np.r_[rng.normal(-3, 1.0, 300), rng.normal(3, 1.0, 300)]
+    hmm = GaussianHMM(states=2, iterations=20).fit(x)
+    # Mixture recovered with clean separation; each state's variance ~ 1.0.
+    assert np.allclose(sorted(hmm.variances), [1.0, 1.0], atol=0.15)
+    assert float(hmm.variances.max()) < 2.5  # far below the old ~4x inflation
+
+
 def test_pairs_model_signal():
     x = np.arange(20, dtype=float)
     y = 2 * x + np.r_[np.zeros(19), 5]

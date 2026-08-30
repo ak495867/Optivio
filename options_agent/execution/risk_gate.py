@@ -11,6 +11,18 @@ class RiskLimits:
     max_open_notional: float = 10000.0
     max_daily_loss_fraction: float = 0.02
 
+    @classmethod
+    def from_env(cls, env: dict[str, str] | None = None) -> "RiskLimits":
+        """Read the documented OPTIVIO_* risk knobs, falling back to safe defaults."""
+        from options_agent.config import load_settings
+
+        s = load_settings(env)
+        return cls(
+            max_order_notional=s.max_order_notional,
+            max_open_notional=s.max_open_notional,
+            max_daily_loss_fraction=s.max_daily_loss_fraction,
+        )
+
 
 class RiskGate:
     def __init__(self, limits: RiskLimits | None = None):

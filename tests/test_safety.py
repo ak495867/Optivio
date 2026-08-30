@@ -40,6 +40,19 @@ def test_walk_forward_has_purge_and_embargo():
     assert folds[0].embargo_end == folds[0].test_end + 2
 
 
+def test_walk_forward_prevents_prior_test_leak():
+    """The next fold's train window must not consume rows used as the prior fold's
+    test/embargo window — a purged walk-forward prevents look-ahead leakage."""
+    folds = list(purged_walk_forward(100, 40, 10, purge=3, embargo=2, step=10))
+    assert len(folds) >= 2
+    for prev, cur in zip(folds, folds[1:]):
+        # cur.train_end <= prev.test_start is the strictest correct bound for
+        # contiguous data: prior test rows are patent, embargoed rows never train.
+        assert cur.train_end <= prev.test_start
+        # The current fold never overlaps the prior embargod zone.
+        assert cur.train_end <= prev.embargo_end or cur.train_start >= prev.embargo_end
+
+
 def test_quote_rejects_crossed_market():
     with pytest.raises(ValueError, match="ask"):
         Quote(contract=contract(), asof=ts(2), available_at=ts(2), bid=2.0, ask=1.0)

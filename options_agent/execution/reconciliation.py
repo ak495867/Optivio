@@ -25,16 +25,25 @@ class BrokerReconciler:
     def reconcile(
         self, packages: Mapping[str, MultiLegPackage], broker: BrokerSnapshot
     ) -> ReconciliationResult:
-        expected_orders = {
-            leg.client_id: leg.filled
+        actual_orders = {order.client_id: order.filled for order in broker.orders}
+        # An order is only "unknown" if it matches no local leg at all. A broker
+        # order under a client_id the engine has (even a PLANNED leg — e.g. after
+        # local state was rebuilt) is claimed and is not a surprise.
+        claimed = {
+            leg.client_id for package in packages.values() for leg in package.legs
+        }
+        unknown = tuple(sorted(set(actual_orders) - claimed))
+        # Only legs that should have an order at the broker count as drift. A leg that
+        # is PLANNED is not yet submitted (the engine submits legs), and a CANCELLED /
+        # REJECTED / EXPIRED leg has no live broker order by definition — so a missing
+        # broker order for them is normal, not drift.
+        no_order_expected = {"planned", "cancelled", "rejected", "expired"}
+        order_drift = any(
+            abs(actual_orders.get(leg.client_id, -1) - leg.filled)
+            > self.quantity_tolerance
             for package in packages.values()
             for leg in package.legs
-        }
-        actual_orders = {order.client_id: order.filled for order in broker.orders}
-        unknown = tuple(sorted(set(actual_orders) - set(expected_orders)))
-        order_drift = any(
-            abs(actual_orders.get(order_id, -1) - qty) > self.quantity_tolerance
-            for order_id, qty in expected_orders.items()
+            if leg.state.value not in no_order_expected
         )
         expected_positions: dict[str, int] = {}
         for package in packages.values():

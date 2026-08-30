@@ -1,10 +1,20 @@
 from __future__ import annotations
 
 import importlib.util
+from pathlib import Path
 from typing import Any
 
 import numpy as np
 import pandas as pd
+
+# External Hive model files must live in exactly this project-relative directory that
+# the repository owns; an operator-supplied path outside it is never executed.
+_HIVE_MODULE_DIR = Path(__file__).resolve().parent / "external" / "hive"
+
+# Provenance marker: a file is only executed if it declares this opt-in header. This
+# prevents an arbitrary .py dropped next to the model (or supplied via env/CLI) from
+# being treated as trusted Hive code.
+_PROVENANCE_MARKER = "# optivio-hive-model\n"
 
 
 class HiveAdapter:
@@ -14,8 +24,39 @@ class HiveAdapter:
         self.checkpoint = checkpoint
         self.model: Any = None
 
-    def load(self, module_path: str):
-        spec = importlib.util.spec_from_file_location("hive_external", module_path)
+    def load(self, file_name: str):
+        """Load a Hive model module from the trusted hive directory only.
+
+        ``file_name`` is a bare filename resolved against the project-owned
+        ``models/external/hive/`` directory. Absolute paths, path traversal, symlinks
+        escaping the directory, and any file lacking the provenance marker are
+        rejected before any code is executed — a module path from an unverified
+        source is never imported (no arbitrary-code execution).
+        """
+        candidate = Path(file_name)
+        if candidate.is_absolute() or candidate.name != file_name:
+            raise ValueError(
+                "Hive module path must be a bare filename within the trusted "
+                f"external hive directory ({_HIVE_MODULE_DIR})"
+            )
+        # Resolve BEFORE the containment check so a symlink cannot point outside the
+        # trusted directory. `_HIVE_MODULE_DIR` stays absolute; only the candidate is
+        # resolved.
+        trusted_root = _HIVE_MODULE_DIR.resolve()
+        module_path = (trusted_root / candidate).resolve()
+        if trusted_root not in module_path.parents and module_path != trusted_root:
+            raise ValueError("Hive module path escapes the trusted hive directory")
+        if module_path.suffix != ".py":
+            raise ValueError("Hive module must be a .py file")
+        if not module_path.exists():
+            raise FileNotFoundError(f"no such Hive module: {module_path}")
+        header = module_path.open("r", encoding="utf-8").readline()
+        if header != _PROVENANCE_MARKER:
+            raise ValueError(
+                "Hive module missing opt-in provenance marker "
+                f"({_PROVENANCE_MARKER.strip()})"
+            )
+        spec = importlib.util.spec_from_file_location("hive_external", str(module_path))
         if spec is None or spec.loader is None:
             raise ImportError(f"cannot load Hive module: {module_path}")
         module = importlib.util.module_from_spec(spec)

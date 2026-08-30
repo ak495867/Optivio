@@ -102,9 +102,15 @@ class GaussianHMM:
             gamma = alpha * beta
             gamma /= gamma.sum(axis=1, keepdims=True) + 1e-12
             self.means = (gamma.T @ x) / (gamma.sum(axis=0) + 1e-12)
-            self.variances = (gamma.T @ ((x[:, None] - self.means) ** 2)).sum(
-                axis=0
-            ) / (gamma.sum(axis=0) + 1e-12)
+            # Element-wise weighted variance: for each state k, sum_t gamma[t,k] *
+            # (x[t] - mean_k)^2, then divide by state k's occupancy. Using the
+            # matrix product gamma.T @ squares and collapsing with .sum(axis=0)
+            # would sum EVERY state's weighted contribution into every variance
+            # (then divide by a single state's occupancy), inflating each variance
+            # by roughly the number of states.
+            squares = (x[:, None] - self.means) ** 2
+            weighted = gamma * squares
+            self.variances = weighted.sum(axis=0) / (gamma.sum(axis=0) + 1e-12)
             self.variances = np.maximum(self.variances, 1e-8)
             self.initial = gamma[0]
         return self

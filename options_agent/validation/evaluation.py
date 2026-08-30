@@ -44,9 +44,14 @@ def walk_forward_scores(
     model_factory,
     train_size: int,
     test_size: int,
-    purge: int = 1,
-    embargo: int = 1,
+    purge: int | None = None,
+    embargo: int | None = None,
 ) -> list[FoldMetrics]:
+    if purge is None or embargo is None:
+        from options_agent.config import settings
+
+        purge = settings.purge_bars if purge is None else purge
+        embargo = settings.embargo_bars if embargo is None else embargo
     validate_point_in_time(df)
     out: list[FoldMetrics] = []
     for fold in purged_walk_forward(len(df), train_size, test_size, purge, embargo):

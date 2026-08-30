@@ -71,8 +71,12 @@ def build_order(
     quote: Quote,
     risk: RiskSnapshot,
     cfg: StrategyConfig,
-    model_version: str,
+    model_version: str | None = None,
 ) -> OrderIntent | None:
+    if model_version is None:
+        from options_agent.config import settings
+
+        model_version = settings.model_version
     if signal.confidence < cfg.min_confidence or risk.kill_switch:
         return None
     mid = (quote.bid + quote.ask) / 2
@@ -81,12 +85,20 @@ def build_order(
     if risk.daily_loss > cfg.max_daily_loss * max(risk.equity, 1.0):
         return None
     side = Side.BUY if signal.score > 0 else Side.SELL
+    # Use a marketable limit: a BUY is willing to pay the ask (capped slightly above
+    # to tolerate slippage); a SELL is willing to take the bid. Pricing at fair mid
+    # would never cross a real market and would produce zero fills in the backtester.
+    if side == Side.BUY:
+        limit_price = round(quote.ask * (1 + 0.001), 2)
+    else:
+        limit_price = round(quote.bid * (1 - 0.001), 2)
+    limit_price = max(limit_price, 0.01)
     return OrderIntent(
         client_order_id=f"oa-{quote.contract.symbol}-{int(signal.asof.timestamp())}",
         contract=quote.contract,
         side=side,
         quantity=1,
-        limit_price=round(mid, 2),
+        limit_price=limit_price,
         rationale=signal.rationale,
         model_version=model_version,
         signal_asof=signal.asof,

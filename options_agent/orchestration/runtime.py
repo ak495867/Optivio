@@ -189,19 +189,32 @@ class OptivioOrchestrator:
     def preflight(
         self, credentials: RuntimeCredentials, mode: RuntimeMode
     ) -> list[GateStatus]:
+        import os
+
         valid, detail = credentials.valid()
         native = all(
             importlib.util.find_spec(module) is not None for module in ("tkinter",)
+        )
+        kill_switch_engaged = (
+            os.environ.get("OPTIVIO_KILL_SWITCH", "false").strip().lower() == "true"
         )
         gates = [
             GateStatus("paper_endpoint", valid, detail),
             GateStatus(
                 "configuration", valid, "configuration validated" if valid else detail
             ),
-            GateStatus("kill_switch_clear", True, "kill switch is clear"),
+            GateStatus(
+                "kill_switch_clear",
+                not kill_switch_engaged,
+                (
+                    "kill switch is clear"
+                    if not kill_switch_engaged
+                    else "OPTIVIO_KILL_SWITCH is set; trading is halted"
+                ),
+            ),
             GateStatus(
                 "native_dependencies",
-                True,
+                native,
                 (
                     "Tk runtime available"
                     if native
@@ -231,12 +244,15 @@ class OptivioOrchestrator:
         with self._lock:
             self.snapshot.state = RuntimeState.PREFLIGHT
         gates = self.preflight(credentials, mode)
-        if not all(g.passed for g in gates):
+        # Only hard gates halt a run. native_dependencies is advisory: Tk is needed
+        # solely by the desktop GUI launcher (which already requires Tk at import),
+        # not by headless signal/paper runs.
+        advisory = {"native_dependencies"}
+        blocking = [g for g in gates if g.passed is False and g.name not in advisory]
+        if blocking:
             with self._lock:
                 self.snapshot.state = RuntimeState.HALTED
-                self.snapshot.last_error = "; ".join(
-                    g.detail for g in gates if not g.passed
-                )
+                self.snapshot.last_error = "; ".join(g.detail for g in blocking)
             self.audit.record("runtime.start", self.snapshot.last_error, "error")
             return False, self.snapshot.last_error
         with self._lock:

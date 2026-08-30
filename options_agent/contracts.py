@@ -52,16 +52,16 @@ class Quote(BaseModel):
     contract: OptionContract
     asof: datetime
     available_at: datetime
-    bid: float = Field(ge=0)
-    ask: float = Field(ge=0)
-    bid_size: int = Field(default=0, ge=0)
-    ask_size: int = Field(default=0, ge=0)
+    bid: float = Field(gt=0)
+    ask: float = Field(gt=0)
+    bid_size: int = Field(ge=1)
+    ask_size: int = Field(ge=1)
 
     @model_validator(mode="after")
     def quote_is_valid(self) -> Quote:
         if self.available_at > self.asof:
             raise ValueError("quote available_at cannot be later than asof")
-        if self.ask and self.bid and self.ask < self.bid:
+        if self.ask < self.bid:
             raise ValueError("ask cannot be below bid")
         return self
 

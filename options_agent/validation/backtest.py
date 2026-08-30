@@ -54,12 +54,16 @@ class OptionsBacktester:
                 if q is None:
                     continue
                 if intent.limit_price is not None:
-                    executable = (
-                        intent.side == Side.BUY and q.ask <= intent.limit_price
-                    ) or (intent.side == Side.SELL and q.bid >= intent.limit_price)
-                    if not executable:
-                        continue
-                base = q.ask if intent.side == Side.BUY else q.bid
+                    if intent.side == Side.BUY:
+                        if q.ask > intent.limit_price:
+                            continue
+                        base = min(intent.limit_price, q.ask)
+                    else:
+                        if q.bid < intent.limit_price:
+                            continue
+                        base = max(intent.limit_price, q.bid)
+                else:
+                    base = q.ask if intent.side == Side.BUY else q.bid
                 slip = base * self.slippage_bps / 10_000
                 px = base + slip if intent.side == Side.BUY else max(0.0, base - slip)
                 gross = px * intent.quantity * intent.contract.multiplier

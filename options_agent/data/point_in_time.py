@@ -61,17 +61,44 @@ class Fold:
     embargo_end: int
 
 
-def purged_walk_forward(n: int, train_size: int, test_size: int, purge: int = 1, embargo: int = 1, step: int | None = None):
+def purged_walk_forward(
+    n: int,
+    train_size: int,
+    test_size: int,
+    purge: int = 1,
+    embargo: int = 1,
+    step: int | None = None,
+):
     if min(n, train_size, test_size) <= 0 or min(purge, embargo) < 0:
         raise ValueError("invalid walk-forward sizes")
     step = step or test_size
     start = 0
     fold = 0
+    # Rows already used as a test window (plus its embargo) are never eligible for
+    # training again: their labels only become knowable after the window has passed.
+    excluded: list[tuple[int, int]] = []
     while start + train_size + purge + test_size <= n:
         train_end = start + train_size
         test_start = train_end + purge
         test_end = test_start + test_size
-        yield Fold(fold, start, train_end, test_start, test_end, min(n, test_end + embargo))
+        embargo_until = min(n, test_end + embargo)
+        # Clamp the train window so it does not consume any previously embargoed /
+        # tested rows. Each prior fold contributes an excluded zone
+        # [test_start, embargo_until).
+        effective_train_end = train_end
+        for zone_start, zone_end in excluded:
+            if zone_start < effective_train_end:
+                effective_train_end = min(effective_train_end, zone_start)
+        # The current fold's own test window (plus embargo) is excluded from
+        # *future* training.
+        excluded.append((test_start, embargo_until))
+        if effective_train_end <= start:
+            # The embargo swallows the entire candidate train window; fold is not
+            # trainable without leakage, so it cannot be emitted.
+            break
+        yield Fold(
+            fold, start, effective_train_end, test_start, test_end, embargo_until
+        )
         fold += 1
         start += step
 

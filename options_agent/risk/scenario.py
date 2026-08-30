@@ -6,6 +6,12 @@ from dataclasses import dataclass
 from options_agent.execution.multileg import Greeks
 
 
+# Black-Scholes theta is annualized (tau in years). A scenario's theta_shock is
+# expressed in days of time decay, so the annualized theta must be converted to
+# per-day before the shock is applied.
+TRADING_DAYS_PER_YEAR = 252
+
+
 @dataclass(frozen=True, slots=True)
 class Scenario:
     name: str
@@ -28,13 +34,17 @@ class ScenarioResult:
 def evaluate_scenarios(
     greeks: Greeks, scenarios: list[Scenario], max_loss: float
 ) -> Mapping[str, ScenarioResult]:
+    # Convert annualized theta to per-day so a theta_shock (in days of decay) is not
+    # overstated 252x (365 with calendar days). The other greeks (delta/gamma/vega/rho)
+    # are per-point/per-unit shocks and need no rescaling.
+    theta_per_day = greeks.theta / TRADING_DAYS_PER_YEAR
     results: dict[str, ScenarioResult] = {}
     for scenario in scenarios:
         pnl = (
             greeks.delta * scenario.delta_shock
             + 0.5 * greeks.gamma * scenario.delta_shock**2
             + greeks.vega * scenario.vega_shock
-            + greeks.theta * scenario.theta_shock
+            + theta_per_day * scenario.theta_shock
             + greeks.rho * scenario.rho_shock
             + greeks.gamma * scenario.gamma_shock
         )

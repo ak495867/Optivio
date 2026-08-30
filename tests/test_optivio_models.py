@@ -2,6 +2,7 @@ import numpy as np
 import pandas as pd
 
 from options_agent.execution.portfolio import PortfolioManager
+from options_agent.models.ensemble import DeepGBM, GraphNetwork, HybridSignalModel
 from options_agent.models.regime_factor import (
     ActiveRegimeClassifier,
     Kalman1D,
@@ -38,6 +39,26 @@ def test_regime_scale_is_conservative_in_high_vol():
 def test_portfolio_weights_are_capped():
     w = PortfolioManager().target_weights(np.array([10.0, 1.0]), np.array([0.1, 0.1]))
     assert np.max(np.abs(w)) <= 0.20 + 1e-12
+
+
+def test_graph_network_fits_and_predicts():
+    x = np.random.default_rng(0).normal(size=(8, 2, 3))
+    y = np.random.default_rng(1).normal(size=(8, 2))
+    model = GraphNetwork(adjacency=np.eye(2)).fit(x, y)
+    pred = model.predict(x)
+    assert pred.shape == (8, 2)
+    # Ridge regression must reproduce a linear mapping with small residual on fit data.
+    assert float(((pred - y) ** 2).mean()) < 1.0
+
+
+def test_hybrid_signal_model_blends_graph_and_tabular():
+    x = np.random.default_rng(2).normal(size=(6, 2, 3))
+    y = np.random.default_rng(3).normal(size=(6, 2))
+    graph = GraphNetwork(adjacency=np.eye(2)).fit(x, y)
+    gbm = DeepGBM().fit(x.reshape(6, -1), y[:, 0])
+    hybrid = HybridSignalModel(graph, gbm, graph_weight=0.5)
+    out = hybrid.predict(x, x.reshape(6, -1))
+    assert out.shape == (6, 2)
 
 
 def test_zero_shot_report_marks_frozen_evaluation():

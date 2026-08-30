@@ -94,25 +94,44 @@ def build_offline_rl_dataset(
     cutoff_ns: int,
     feature_columns: tuple[str, ...],
     policy: Callable[[dict[str, Any]], int],
+    reward_horizon: int = 1,
 ) -> OfflineRLTrainingResult:
+    """Build offline-RL transitions from point-in-time rows.
+
+    Each transition is ``(state, action, reward, next_state, done)``. The reward is
+    realized over the *next* ``reward_horizon`` bars, so ``next_state`` is the state
+    observed after that horizon elapses — never the immediately-next row. The final
+    ``reward_horizon`` rows have no observable outcome and are emitted as done
+    transitions (self-loop) only so the episode boundary is explicit; offline-RL
+    evaluators must drop them (see ``OfflineRLEvaluator``).
+    """
     _validate(rows)
+    if reward_horizon <= 0:
+        raise ValueError("reward_horizon must be positive")
     train, validation = _split(rows, cutoff_ns)
     transitions: list[LoggedTransition] = []
     for index, row in enumerate(train):
-        next_row = train[min(index + 1, len(train) - 1)]
         state = np.asarray(
             [float(row[column]) for column in feature_columns], dtype=float
         )
-        next_state = np.asarray(
-            [float(next_row[column]) for column in feature_columns], dtype=float
-        )
+        outcome_index = index + reward_horizon
+        if outcome_index < len(train):
+            outcome = train[outcome_index]
+            next_state = np.asarray(
+                [float(outcome[column]) for column in feature_columns], dtype=float
+            )
+            done = False
+        else:
+            # No observable outcome within the window: self-loop, terminal.
+            next_state = state
+            done = True
         transitions.append(
             LoggedTransition(
                 state,
                 int(row["action"]),
                 float(row["reward"]),
                 next_state,
-                index == len(train) - 1,
+                done,
                 float(row["behavior_probability"]),
                 int(row["available_at_ns"]),
             )

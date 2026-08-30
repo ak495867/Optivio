@@ -35,12 +35,14 @@ class ConservativeChampionChallenger:
         max_worst_period_loss: float = 0.05,
         max_turnover: float = 2.0,
         min_advantage: float = 0.01,
+        min_supported_transitions: int = 20,
     ):
         self.min_support = min_support
         self.max_drawdown = max_drawdown
         self.max_worst_period_loss = max_worst_period_loss
         self.max_turnover = max_turnover
         self.min_advantage = min_advantage
+        self.min_supported_transitions = min_supported_transitions
 
     @staticmethod
     def _metrics(
@@ -68,12 +70,21 @@ class ConservativeChampionChallenger:
             if int(policy(transition.state)) == transition.action:
                 rewards.append(float(transition.reward))
                 actions.append(int(transition.action))
-        ret, dd, worst, turnover = (
-            self._metrics(
-                np.asarray(rewards, dtype=float), np.asarray(actions, dtype=float)
+        # A policy with too few supported transitions has no meaningful risk
+        # metrics. Report it with "not enough evidence"; `decide` must never promote
+        # based on a tiny / coincidental sample. (The old magic -1.0 sentinel made a
+        # no-data drawdown indistinguishable from a real 100% loss.)
+        if len(rewards) < self.min_supported_transitions:
+            return PolicyEvaluation(
+                name,
+                report,
+                float("nan"),
+                float("nan"),
+                float("nan"),
+                float("inf"),  # degenerate: no turnover bound applies
             )
-            if rewards
-            else (0.0, -1.0, -1.0, float("inf"))
+        ret, dd, worst, turnover = self._metrics(
+            np.asarray(rewards, dtype=float), np.asarray(actions, dtype=float)
         )
         return PolicyEvaluation(name, report, ret, dd, worst, turnover)
 
@@ -81,6 +92,14 @@ class ConservativeChampionChallenger:
         self, champion: PolicyEvaluation, challenger: PolicyEvaluation
     ) -> PromotionDecision:
         c, n = champion, challenger
+        # A degenerate challenger (insufficient supported transitions / NaN metrics)
+        # is never promoted, regardless of any reported advantage.
+        degenerate = (
+            not np.isfinite(n.cumulative_return)
+            or not np.isfinite(n.max_drawdown)
+            or not np.isfinite(n.worst_period_return)
+            or n.turnover == float("inf")
+        )
         advantage = n.cumulative_return - c.cumulative_return
         safe = (
             bool(getattr(n.report, "safe", False))
@@ -88,7 +107,7 @@ class ConservativeChampionChallenger:
             and n.worst_period_return >= -self.max_worst_period_loss
             and n.turnover <= self.max_turnover
         )
-        approved = safe and advantage >= self.min_advantage
+        approved = (not degenerate) and safe and advantage >= self.min_advantage
         reason = (
             "challenger passed support, risk, turnover, and advantage gates"
             if approved

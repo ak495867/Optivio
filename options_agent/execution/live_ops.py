@@ -73,7 +73,8 @@ def alpaca_paper_stream_smoke_test(
     secret = os.environ.get("ALPACA_SECRET_KEY", "")
     if not key or not secret:
         return {"ok": False, "reason": "missing ALPACA_API_KEY or ALPACA_SECRET_KEY"}
-    if os.environ.get("ALPACA_PAPER", "1") != "1":
+    paper = os.environ.get("ALPACA_PAPER", "1")
+    if paper != "1":
         return {"ok": False, "reason": "ALPACA_PAPER must equal 1"}
     if not symbols or seconds <= 0 or seconds > 60:
         return {
@@ -94,7 +95,11 @@ def alpaca_paper_stream_smoke_test(
         received += 1
 
     def factory(api_key: str, secret_key: str) -> Any:
-        feed = os.environ.get("ALPACA_OPTIONS_FEED", "indicative")
+        # Canonical name is ALPACA_DATA_FEED (as documented); accept the legacy
+        # ALPACA_OPTIONS_FEED when the canonical one is unset.
+        feed = os.environ.get("ALPACA_DATA_FEED") or os.environ.get(
+            "ALPACA_OPTIONS_FEED", "indicative"
+        )
         return OptionDataStream(api_key, secret_key, feed=OptionsFeed(feed))
 
     async def subscribe(stream: Any, requested: list[str]) -> None:

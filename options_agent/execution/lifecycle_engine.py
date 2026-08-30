@@ -66,13 +66,28 @@ class MultiLegExecutionEngine:
     ) -> tuple[bool, str]:
         if package.package_id in self.packages:
             return False, "duplicate package"
+        # Approve against the *portfolio* greeks after this addition, not just this
+        # package's own edge: a single package under the limit can still push the
+        # aggregate over it once other registered packages are included. The new
+        # package's own pre-existing holdings (current_greeks) count as part of the
+        # baseline it adds to the portfolio.
+        portfolio_current = self._portfolio_greeks() + package.current_greeks
         approved, reason = self.greeks_gate.approve(
-            package.current_greeks, proposed_greeks
+            portfolio_current, proposed_greeks
         )
         if not approved:
             return False, reason
+        # Persist the approved exposure so the portfolio aggregate reflects it.
+        package.current_greeks = proposed_greeks
         self.packages[package.package_id] = package
         return True, "registered"
+
+    def _portfolio_greeks(self) -> Greeks:
+        """Sum the current greeks across every active registered package."""
+        total = Greeks()
+        for pkg in self.packages.values():
+            total = total + pkg.current_greeks
+        return total
 
     def submit(self, package_id: str) -> tuple[bool, str]:
         if self.reconciliation_blocked:

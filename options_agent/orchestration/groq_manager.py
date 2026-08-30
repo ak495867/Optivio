@@ -23,7 +23,13 @@ class GroqManager:
     """LLM is restricted to structured alt-data interpretation and run supervision."""
 
     def __init__(self, model: str | None = None):
-        self.model = model or os.getenv("GROQ_MODEL", "llama-3.3-70b-versatile")
+        self.model = (
+            model
+            or os.getenv("GROQ_MODEL")
+            or "llama-3.3-70b-versatile"
+        )
+        # Wire the documented temperature knob instead of a hardcoded 0.
+        self.temperature = float(os.getenv("GROQ_TEMPERATURE", "0") or 0)
         self.client: Any = None
 
     def connect(self) -> None:
@@ -50,7 +56,7 @@ class GroqManager:
         response = self.client.chat.completions.create(
             model=self.model,
             messages=[{"role": "user", "content": prompt}],
-            temperature=0,
+            temperature=self.temperature,
             response_format={"type": "json_object"},
         )
         parsed = json.loads(response.choices[0].message.content)
