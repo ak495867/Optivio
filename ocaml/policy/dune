@@ -4,5 +4,5 @@
 
 (test
  (name test_policy)
- (modules test_policy)  
+ (modules test_policy)
  (libraries optivio_policy))
