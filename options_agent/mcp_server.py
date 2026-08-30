@@ -16,7 +16,7 @@ import os
 from datetime import datetime, timezone
 from typing import Any
 
-from options_agent.contracts import OrderIntent, RiskSnapshot, Side
+from options_agent.contracts import OrderIntent, Side
 from options_agent.execution.risk_gate import RiskGate, RiskLimits
 from options_agent.data.quote_store import QuoteStore
 
@@ -136,7 +136,6 @@ def mcp_submit_order(
     # Resolve the real contract (underlying, expiration, strike, right) from the
     # paper trading client's authoritative option-contracts endpoint. A stub is
     # never used: if the symbol is unknown/untradable the adapter raises.
-    from options_agent.contracts import Side
 
     contract = adapter.get_option_contract(contract_symbol)
     now = datetime.now(timezone.utc)
