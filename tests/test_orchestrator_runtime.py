@@ -10,7 +10,12 @@ from options_agent.orchestration.runtime import (
 
 def test_credentials_require_paper_endpoint(tmp_path: Path):
     runtime = OptivioOrchestrator(tmp_path / "audit.tsv")
-    ok, detail = runtime.start(RuntimeCredentials("key", "secret", paper_endpoint="https://api.alpaca.markets"), RuntimeMode.SIGNAL_ONLY)
+    ok, detail = runtime.start(
+        RuntimeCredentials(
+            "key", "secret", paper_endpoint="https://api.alpaca.markets"
+        ),
+        RuntimeMode.SIGNAL_ONLY,
+    )
     assert not ok
     assert "paper endpoint" in detail
     assert runtime.snapshot.state == RuntimeState.HALTED
@@ -18,7 +23,9 @@ def test_credentials_require_paper_endpoint(tmp_path: Path):
 
 def test_constrained_paper_waits_for_sync(tmp_path: Path):
     runtime = OptivioOrchestrator(tmp_path / "audit.tsv")
-    ok, detail = runtime.start(RuntimeCredentials("key", "secret"), RuntimeMode.CONSTRAINED_PAPER)
+    ok, detail = runtime.start(
+        RuntimeCredentials("key", "secret"), RuntimeMode.CONSTRAINED_PAPER
+    )
     assert ok and "paper execution remains behind" in detail
     assert runtime.snapshot.state == RuntimeState.SYNCING
     ok, _ = runtime.mark_synchronized(stream_fresh=False, broker_synced=True)

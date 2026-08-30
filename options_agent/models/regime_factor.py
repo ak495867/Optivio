@@ -40,7 +40,12 @@ def mathematical_factors(close: pd.DataFrame, lookback: int = 20) -> pd.DataFram
     return out.replace([np.inf, -np.inf], np.nan)
 
 
-def bayesian_decay(weights: np.ndarray, age: np.ndarray, half_life: float = 20.0, prior_strength: float = 0.25) -> np.ndarray:
+def bayesian_decay(
+    weights: np.ndarray,
+    age: np.ndarray,
+    half_life: float = 20.0,
+    prior_strength: float = 0.25,
+) -> np.ndarray:
     """Shrink older evidence toward a neutral prior; age must be known at decision time."""
     if half_life <= 0 or prior_strength < 0 or prior_strength > 1:
         raise ValueError("invalid decay parameters")
@@ -52,6 +57,7 @@ def bayesian_decay(weights: np.ndarray, age: np.ndarray, half_life: float = 20.0
 
 class ActiveRegimeClassifier:
     """Fast rule-based regime state; thresholds must be frozen before evaluation."""
+
     def __init__(self, vol_threshold: float = 0.025, trend_threshold: float = 0.01):
         self.vol_threshold, self.trend_threshold = vol_threshold, trend_threshold
 
@@ -63,4 +69,9 @@ class ActiveRegimeClassifier:
         return "range_bound"
 
     def exposure_scale(self, regime: str) -> float:
-        return {"high_volatility": 0.35, "trending_up": 1.0, "trending_down": 0.60, "range_bound": 0.70}.get(regime, 0.25)
+        return {
+            "high_volatility": 0.35,
+            "trending_up": 1.0,
+            "trending_down": 0.60,
+            "range_bound": 0.70,
+        }.get(regime, 0.25)

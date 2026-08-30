@@ -15,7 +15,7 @@ def test_kalman_converges_toward_observation():
     k = Kalman1D()
     values = k.filter(np.concatenate(([0.0], np.ones(19))))
     assert values[-1] > values[0]
-    assert abs(values[-1] - 1) < .1
+    assert abs(values[-1] - 1) < 0.1
 
 
 def test_factors_are_causal():
@@ -27,19 +27,21 @@ def test_factors_are_causal():
 
 
 def test_bayesian_decay_reduces_old_evidence():
-    assert bayesian_decay(np.array([1.0]), np.array([40.0]), half_life=20)[0] < .5
+    assert bayesian_decay(np.array([1.0]), np.array([40.0]), half_life=20)[0] < 0.5
 
 
 def test_regime_scale_is_conservative_in_high_vol():
     c = ActiveRegimeClassifier()
-    assert c.exposure_scale(c.classify(.0, .10)) < c.exposure_scale("trending_up")
+    assert c.exposure_scale(c.classify(0.0, 0.10)) < c.exposure_scale("trending_up")
 
 
 def test_portfolio_weights_are_capped():
-    w = PortfolioManager().target_weights(np.array([10.0, 1.0]), np.array([.1, .1]))
-    assert np.max(np.abs(w)) <= .20 + 1e-12
+    w = PortfolioManager().target_weights(np.array([10.0, 1.0]), np.array([0.1, 0.1]))
+    assert np.max(np.abs(w)) <= 0.20 + 1e-12
 
 
 def test_zero_shot_report_marks_frozen_evaluation():
-    report = zero_shot_metrics(np.array([.01, -.005, .002]), np.array([1000, 2000, 1500]))
+    report = zero_shot_metrics(
+        np.array([0.01, -0.005, 0.002]), np.array([1000, 2000, 1500])
+    )
     assert report.zero_shot and report.p95_latency_us > 0

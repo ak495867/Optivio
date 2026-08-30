@@ -94,6 +94,7 @@ class OptivioOrchestrator:
             def run() -> str:
                 self.snapshot.metrics[f"{name}.last"] = "ok"
                 return f"{name} checked"
+
             return run
 
         specs = (
@@ -110,18 +111,35 @@ class OptivioOrchestrator:
             ("greeks_risk", "Risk", ("contract_master", "broker_reconciliation")),
             ("portfolio", "Risk", ("greeks_risk", "strategies")),
             ("smart_router", "Execution", ("portfolio", "event_bus")),
-            ("paper_execution", "Execution", ("smart_router", "broker_reconciliation", "greeks_risk")),
+            (
+                "paper_execution",
+                "Execution",
+                ("smart_router", "broker_reconciliation", "greeks_risk"),
+            ),
         )
         for name, group, dependencies in specs:
-            self._components[name] = Component(name, group, dependencies, status_action(name))
+            self._components[name] = Component(
+                name, group, dependencies, status_action(name)
+            )
 
     def components(self) -> list[Component]:
         return list(self._components.values())
 
     def _dependencies_ready(self, name: str) -> tuple[bool, str]:
         component = self._components[name]
-        missing = [dependency for dependency in component.dependencies if self.snapshot.components.get(dependency) != "ready"]
-        return (not missing, "dependencies ready" if not missing else f"waiting for: {', '.join(missing)}")
+        missing = [
+            dependency
+            for dependency in component.dependencies
+            if self.snapshot.components.get(dependency) != "ready"
+        ]
+        return (
+            not missing,
+            (
+                "dependencies ready"
+                if not missing
+                else f"waiting for: {', '.join(missing)}"
+            ),
+        )
 
     def invoke(self, name: str) -> str:
         component = self._components.get(name)
@@ -129,51 +147,96 @@ class OptivioOrchestrator:
             raise KeyError(name)
         ready, detail = self._dependencies_ready(name)
         if not ready:
-            self.audit.record("component.blocked", f"name={name} detail={detail}", "warning")
+            self.audit.record(
+                "component.blocked", f"name={name} detail={detail}", "warning"
+            )
             raise RuntimeError(detail)
         result = component.action()
         with self._lock:
             self.snapshot.components[name] = "ready"
-            self.snapshot.counters["component_invocations"] = self.snapshot.counters.get("component_invocations", 0) + 1
+            self.snapshot.counters["component_invocations"] = (
+                self.snapshot.counters.get("component_invocations", 0) + 1
+            )
         self.audit.record("component.invoke", f"name={name} result={result}")
         return result
 
     def run_sequence(self, mode: RuntimeMode) -> tuple[bool, str]:
-        sequence = ("point_in_time", "contract_master", "event_bus", "persistence", "broker_reconciliation", "hybrid_model", "regime_models", "strategies", "greeks_risk", "portfolio", "smart_router")
+        sequence = (
+            "point_in_time",
+            "contract_master",
+            "event_bus",
+            "persistence",
+            "broker_reconciliation",
+            "hybrid_model",
+            "regime_models",
+            "strategies",
+            "greeks_risk",
+            "portfolio",
+            "smart_router",
+        )
         for name in sequence:
             try:
                 self.invoke(name)
             except (RuntimeError, KeyError) as error:
                 return False, f"sequence blocked at {name}: {error}"
         if mode == RuntimeMode.CONSTRAINED_PAPER:
-            return True, "safe sequence complete; paper execution remains behind stream and broker gates"
+            return (
+                True,
+                "safe sequence complete; paper execution remains behind stream and broker gates",
+            )
         return True, "safe sequence complete"
 
-    def preflight(self, credentials: RuntimeCredentials, mode: RuntimeMode) -> list[GateStatus]:
+    def preflight(
+        self, credentials: RuntimeCredentials, mode: RuntimeMode
+    ) -> list[GateStatus]:
         valid, detail = credentials.valid()
-        native = all(importlib.util.find_spec(module) is not None for module in ("tkinter",))
+        native = all(
+            importlib.util.find_spec(module) is not None for module in ("tkinter",)
+        )
         gates = [
             GateStatus("paper_endpoint", valid, detail),
-            GateStatus("configuration", valid, "configuration validated" if valid else detail),
+            GateStatus(
+                "configuration", valid, "configuration validated" if valid else detail
+            ),
             GateStatus("kill_switch_clear", True, "kill switch is clear"),
-            GateStatus("native_dependencies", True, "Tk runtime available" if native else "Tk runtime unavailable; GUI launcher requires a desktop Tk installation"),
-            GateStatus("typed_paper_intent", mode != RuntimeMode.CONSTRAINED_PAPER or valid, "typed paper intent boundary active"),
+            GateStatus(
+                "native_dependencies",
+                True,
+                (
+                    "Tk runtime available"
+                    if native
+                    else "Tk runtime unavailable; GUI launcher requires a desktop Tk installation"
+                ),
+            ),
+            GateStatus(
+                "typed_paper_intent",
+                mode != RuntimeMode.CONSTRAINED_PAPER or valid,
+                "typed paper intent boundary active",
+            ),
         ]
-        self.audit.record("preflight", "; ".join(f"{g.name}={g.passed}" for g in gates), "info" if all(g.passed for g in gates) else "warning")
+        self.audit.record(
+            "preflight",
+            "; ".join(f"{g.name}={g.passed}" for g in gates),
+            "info" if all(g.passed for g in gates) else "warning",
+        )
         with self._lock:
             self.snapshot.gates = gates
             self.snapshot.mode = mode
             self._credentials = credentials if valid else None
         return gates
 
-    def start(self, credentials: RuntimeCredentials, mode: RuntimeMode) -> tuple[bool, str]:
+    def start(
+        self, credentials: RuntimeCredentials, mode: RuntimeMode
+    ) -> tuple[bool, str]:
         with self._lock:
             self.snapshot.state = RuntimeState.PREFLIGHT
         gates = self.preflight(credentials, mode)
         if not all(g.passed for g in gates):
             with self._lock:
                 self.snapshot.state = RuntimeState.HALTED
-                self.snapshot.last_error = "; ".join(g.detail for g in gates if not g.passed)
+                self.snapshot.last_error = "; ".join(
+                    g.detail for g in gates if not g.passed
+                )
             self.audit.record("runtime.start", self.snapshot.last_error, "error")
             return False, self.snapshot.last_error
         with self._lock:
@@ -186,20 +249,43 @@ class OptivioOrchestrator:
             self.audit.record("runtime.start", detail, "error")
             return False, detail
         if mode == RuntimeMode.CONSTRAINED_PAPER:
-            self.audit.record("runtime.sync", "waiting for verified stream and broker synchronization")
+            self.audit.record(
+                "runtime.sync", "waiting for verified stream and broker synchronization"
+            )
             return True, detail
         with self._lock:
             self.snapshot.state = RuntimeState.RUNNING
         self.audit.record("runtime.start", f"mode={mode.value}")
         return True, f"Optivio running in {mode.value}"
 
-    def mark_synchronized(self, stream_fresh: bool, broker_synced: bool) -> tuple[bool, str]:
+    def mark_synchronized(
+        self, stream_fresh: bool, broker_synced: bool
+    ) -> tuple[bool, str]:
         with self._lock:
-            for gate_name, passed, detail in (("fresh_stream", stream_fresh, "stream is fresh" if stream_fresh else "stream is stale"), ("broker_sync", broker_synced, "broker state matches local state" if broker_synced else "broker drift blocks exposure")):
-                self.snapshot.gates = [g for g in self.snapshot.gates if g.name != gate_name] + [GateStatus(gate_name, passed, detail)]
+            for gate_name, passed, detail in (
+                (
+                    "fresh_stream",
+                    stream_fresh,
+                    "stream is fresh" if stream_fresh else "stream is stale",
+                ),
+                (
+                    "broker_sync",
+                    broker_synced,
+                    (
+                        "broker state matches local state"
+                        if broker_synced
+                        else "broker drift blocks exposure"
+                    ),
+                ),
+            ):
+                self.snapshot.gates = [
+                    g for g in self.snapshot.gates if g.name != gate_name
+                ] + [GateStatus(gate_name, passed, detail)]
             if not stream_fresh or not broker_synced:
                 self.snapshot.state = RuntimeState.HALTED
-                self.snapshot.last_error = "stream freshness or broker synchronization failed"
+                self.snapshot.last_error = (
+                    "stream freshness or broker synchronization failed"
+                )
                 self.audit.record("runtime.sync", self.snapshot.last_error, "error")
                 return False, self.snapshot.last_error
             self.snapshot.state = RuntimeState.RUNNING
@@ -222,13 +308,25 @@ class OptivioOrchestrator:
             self.snapshot.components.pop("event_bus", None)
             self.snapshot.components.pop("persistence", None)
             self.snapshot.components.pop("broker_reconciliation", None)
-            self.snapshot.gates = [g for g in self.snapshot.gates if g.name not in {"fresh_stream", "broker_sync"}]
-        self.audit.record("runtime.recovery", "event stream and broker synchronization reset; new exposure blocked")
+            self.snapshot.gates = [
+                g
+                for g in self.snapshot.gates
+                if g.name not in {"fresh_stream", "broker_sync"}
+            ]
+        self.audit.record(
+            "runtime.recovery",
+            "event stream and broker synchronization reset; new exposure blocked",
+        )
 
     def reconnect(self) -> tuple[bool, str]:
         self.recover()
         try:
-            for name in ("point_in_time", "contract_master", "event_bus", "persistence"):
+            for name in (
+                "point_in_time",
+                "contract_master",
+                "event_bus",
+                "persistence",
+            ):
                 self.invoke(name)
         except (RuntimeError, KeyError) as error:
             with self._lock:
@@ -236,15 +334,32 @@ class OptivioOrchestrator:
                 self.snapshot.last_error = f"reconnect blocked: {error}"
             self.audit.record("runtime.reconnect", self.snapshot.last_error, "error")
             return False, self.snapshot.last_error
-        self.audit.record("runtime.reconnect", "data path rebuilt; broker synchronization still required")
+        self.audit.record(
+            "runtime.reconnect",
+            "data path rebuilt; broker synchronization still required",
+        )
         return True, "data path rebuilt; verify broker state before exposure"
 
     def check_operational_health(self) -> dict[str, str]:
         health = {
             "market_data": "freshness probe required",
-            "contract_master": "ready" if self.snapshot.components.get("contract_master") == "ready" else "pending",
-            "broker_reconciliation": "verified" if any(g.name == "broker_sync" and g.passed for g in self.snapshot.gates) else "blocked",
-            "risk_greeks": "ready" if self.snapshot.components.get("greeks_risk") == "ready" else "pending",
+            "contract_master": (
+                "ready"
+                if self.snapshot.components.get("contract_master") == "ready"
+                else "pending"
+            ),
+            "broker_reconciliation": (
+                "verified"
+                if any(
+                    g.name == "broker_sync" and g.passed for g in self.snapshot.gates
+                )
+                else "blocked"
+            ),
+            "risk_greeks": (
+                "ready"
+                if self.snapshot.components.get("greeks_risk") == "ready"
+                else "pending"
+            ),
             "orders": "paper-only gate",
             "fills": "awaiting paper events",
             "pnl": "awaiting delayed outcomes",
@@ -254,10 +369,32 @@ class OptivioOrchestrator:
 
     def tick(self) -> RuntimeSnapshot:
         with self._lock:
-            if self.snapshot.state in (RuntimeState.RUNNING, RuntimeState.SYNCING, RuntimeState.RECOVERY):
-                self.snapshot.counters["health_checks"] = self.snapshot.counters.get("health_checks", 0) + 1
-                self.snapshot.metrics["stream_freshness"] = "requires live adapter probe"
-                self.snapshot.metrics["broker_reconciliation"] = "requires broker snapshot"
-                self.snapshot.metrics["contract_master"] = "ready" if self.snapshot.components.get("contract_master") == "ready" else "pending"
+            if self.snapshot.state in (
+                RuntimeState.RUNNING,
+                RuntimeState.SYNCING,
+                RuntimeState.RECOVERY,
+            ):
+                self.snapshot.counters["health_checks"] = (
+                    self.snapshot.counters.get("health_checks", 0) + 1
+                )
+                self.snapshot.metrics["stream_freshness"] = (
+                    "requires live adapter probe"
+                )
+                self.snapshot.metrics["broker_reconciliation"] = (
+                    "requires broker snapshot"
+                )
+                self.snapshot.metrics["contract_master"] = (
+                    "ready"
+                    if self.snapshot.components.get("contract_master") == "ready"
+                    else "pending"
+                )
                 self.check_operational_health()
-            return RuntimeSnapshot(self.snapshot.state, self.snapshot.mode, list(self.snapshot.gates), dict(self.snapshot.counters), dict(self.snapshot.components), dict(self.snapshot.metrics), self.snapshot.last_error)
+            return RuntimeSnapshot(
+                self.snapshot.state,
+                self.snapshot.mode,
+                list(self.snapshot.gates),
+                dict(self.snapshot.counters),
+                dict(self.snapshot.components),
+                dict(self.snapshot.metrics),
+                self.snapshot.last_error,
+            )

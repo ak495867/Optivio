@@ -6,7 +6,14 @@ from options_agent.training.pipelines import build_offline_rl_dataset, train_hmm
 
 def _rows() -> list[dict[str, object]]:
     return [
-        {"asof_ns": i, "available_at_ns": i, "value": float(i) / 10, "action": i % 2, "reward": 0.1 * i, "behavior_probability": 0.5}
+        {
+            "asof_ns": i,
+            "available_at_ns": i,
+            "value": float(i) / 10,
+            "action": i % 2,
+            "reward": 0.1 * i,
+            "behavior_probability": 0.5,
+        }
         for i in range(8)
     ]
 

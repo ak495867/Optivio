@@ -19,11 +19,19 @@ class ModelSignal:
 
 class ParallelSignalEngine:
     """Persistent fan-out/fan-in engine; the executor is created once, not per market event."""
-    def __init__(self, models: dict[str, Callable[[Any], tuple[float, float]]], workers: int | None = None, executor: Executor | None = None):
+
+    def __init__(
+        self,
+        models: dict[str, Callable[[Any], tuple[float, float]]],
+        workers: int | None = None,
+        executor: Executor | None = None,
+    ):
         if not models:
             raise ValueError("at least one model is required")
         self.models = models
-        self.executor = executor or ThreadPoolExecutor(max_workers=workers or len(models), thread_name_prefix="optivio-signal")
+        self.executor = executor or ThreadPoolExecutor(
+            max_workers=workers or len(models), thread_name_prefix="optivio-signal"
+        )
         self._owns_executor = executor is None
 
     def infer(self, payload: Any) -> list[ModelSignal]:
@@ -34,13 +42,19 @@ class ParallelSignalEngine:
         for name, future in futures.items():
             try:
                 score, confidence = future.result()
-                signals.append(ModelSignal(name, float(score), float(np.clip(confidence, 0, 1)), 0))
-            except Exception as exc:                                                                               
+                signals.append(
+                    ModelSignal(name, float(score), float(np.clip(confidence, 0, 1)), 0)
+                )
+            except Exception as exc:
                 signals.append(ModelSignal(name, 0.0, 0.0, 0, type(exc).__name__))
         return signals
 
-    def aggregate(self, signals: list[ModelSignal], min_confidence: float = .5) -> tuple[float, float]:
-        valid = [s for s in signals if s.error is None and s.confidence >= min_confidence]
+    def aggregate(
+        self, signals: list[ModelSignal], min_confidence: float = 0.5
+    ) -> tuple[float, float]:
+        valid = [
+            s for s in signals if s.error is None and s.confidence >= min_confidence
+        ]
         if not valid:
             return 0.0, 0.0
         weights = np.array([s.confidence for s in valid])

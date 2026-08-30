@@ -9,19 +9,24 @@ import numpy as np
 @dataclass
 class GraphNetwork:
     """Cross-asset message passing over a fixed, supplied adjacency matrix."""
+
     adjacency: np.ndarray
     ridge: float = 1e-3
     weights: np.ndarray | None = None
 
     def fit(self, x: np.ndarray, y: np.ndarray) -> GraphNetwork:
         if x.ndim != 3 or y.ndim != 2 or x.shape[:2] != y.shape:
-            raise ValueError("x must be [samples, assets, features], y [samples, assets]")
+            raise ValueError(
+                "x must be [samples, assets, features], y [samples, assets]"
+            )
         a = np.asarray(self.adjacency, dtype=float)
         if a.shape != (x.shape[1], x.shape[1]):
             raise ValueError("adjacency shape must match asset count")
         deg = a.sum(axis=1, keepdims=True).clip(min=1)
         msg = (a / deg) @ x.mean(axis=0)
-        design = np.concatenate([x.mean(axis=1), np.broadcast_to(msg, (len(x), *msg.shape))], axis=2)
+        design = np.concatenate(
+            [x.mean(axis=1), np.broadcast_to(msg, (len(x), *msg.shape))], axis=2
+        )
         flat_x = design.reshape(len(x) * x.shape[1], -1)
         flat_y = y.reshape(-1)
         gram = flat_x.T @ flat_x + self.ridge * np.eye(flat_x.shape[1])
@@ -34,13 +39,18 @@ class GraphNetwork:
         a = np.asarray(self.adjacency, dtype=float)
         deg = a.sum(axis=1, keepdims=True).clip(min=1)
         msg = (a / deg) @ x.mean(axis=0)
-        design = np.concatenate([x.mean(axis=1), np.broadcast_to(msg, (len(x), *msg.shape))], axis=2)
-        return (design.reshape(len(x) * x.shape[1], -1) @ self.weights).reshape(len(x), x.shape[1])
+        design = np.concatenate(
+            [x.mean(axis=1), np.broadcast_to(msg, (len(x), *msg.shape))], axis=2
+        )
+        return (design.reshape(len(x) * x.shape[1], -1) @ self.weights).reshape(
+            len(x), x.shape[1]
+        )
 
 
 @dataclass
 class DeepGBM:
     """Leakage-safe wrapper around sklearn HistGradientBoosting when available."""
+
     max_iter: int = 150
     learning_rate: float = 0.05
     max_depth: int = 4
@@ -50,8 +60,15 @@ class DeepGBM:
         try:
             from sklearn.ensemble import HistGradientBoostingRegressor
         except ImportError as exc:
-            raise ImportError("install scikit-learn optional dependency to use DeepGBM") from exc
-        self.model = HistGradientBoostingRegressor(max_iter=self.max_iter, learning_rate=self.learning_rate, max_depth=self.max_depth, random_state=7)
+            raise ImportError(
+                "install scikit-learn optional dependency to use DeepGBM"
+            ) from exc
+        self.model = HistGradientBoostingRegressor(
+            max_iter=self.max_iter,
+            learning_rate=self.learning_rate,
+            max_depth=self.max_depth,
+            random_state=7,
+        )
         self.model.fit(np.asarray(x), np.asarray(y))
         return self
 

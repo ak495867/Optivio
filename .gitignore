@@ -7,7 +7,7 @@ __pycache__/
 .mypy_cache/
 .ruff_cache/
 *.py[cod]
-data/
+
 logs/
 models/checkpoints/
 cpp/build/
@@ -16,3 +16,4 @@ research_findings.md
 todo.md
 static_audit.txt
 test_report.txt 
+optivio.egg-info/

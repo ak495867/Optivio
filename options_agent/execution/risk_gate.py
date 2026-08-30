@@ -17,7 +17,9 @@ class RiskGate:
         self.limits = limits or RiskLimits()
 
     def approve(self, intent: OrderIntent, snapshot: RiskSnapshot) -> tuple[bool, str]:
-        notional = (intent.limit_price or 0.0) * intent.quantity * intent.contract.multiplier
+        notional = (
+            (intent.limit_price or 0.0) * intent.quantity * intent.contract.multiplier
+        )
         if snapshot.kill_switch:
             return False, "kill switch is active"
         if notional <= 0 or notional > self.limits.max_order_notional:

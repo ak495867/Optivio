@@ -6,8 +6,18 @@ from options_agent.risk.scenario import Scenario, evaluate_scenarios
 
 def test_durable_store_replay_and_verify(tmp_path):
     store = DurableEventStore(tmp_path / "events.db")
-    store.append("quote", "2026-01-01T00:00:00+00:00", "2026-01-01T00:00:00+00:00", {"symbol": "A", "bid": 1})
-    store.append("fill", "2026-01-01T00:00:01+00:00", "2026-01-01T00:00:02+00:00", {"order": "o1"})
+    store.append(
+        "quote",
+        "2026-01-01T00:00:00+00:00",
+        "2026-01-01T00:00:00+00:00",
+        {"symbol": "A", "bid": 1},
+    )
+    store.append(
+        "fill",
+        "2026-01-01T00:00:01+00:00",
+        "2026-01-01T00:00:02+00:00",
+        {"order": "o1"},
+    )
     assert store.verify() and len(list(store.replay())) == 2
 
 
@@ -18,5 +28,7 @@ def test_model_manifest_signature():
 
 
 def test_scenario_loss():
-    results = evaluate_scenarios(Greeks(delta=10), [Scenario("down", delta_shock=-2)], max_loss=15)
+    results = evaluate_scenarios(
+        Greeks(delta=10), [Scenario("down", delta_shock=-2)], max_loss=15
+    )
     assert results["down"].breached

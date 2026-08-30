@@ -7,4 +7,9 @@ from .pipelines import (
     train_hmm,
 )
 
-__all__ = ["HMMTrainingResult", "OfflineRLTrainingResult", "build_offline_rl_dataset", "train_hmm"]
+__all__ = [
+    "HMMTrainingResult",
+    "OfflineRLTrainingResult",
+    "build_offline_rl_dataset",
+    "train_hmm",
+]

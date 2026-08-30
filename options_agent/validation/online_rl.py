@@ -19,11 +19,11 @@ class OnlineOutcome:
 
 @dataclass(frozen=True, slots=True)
 class LiveGuardrails:
-    max_drawdown: float = .05
-    max_daily_loss: float = .02
+    max_drawdown: float = 0.05
+    max_daily_loss: float = 0.02
     max_action_abs: float = 1.0
     min_observations: int = 100
-    min_advantage: float = .005
+    min_advantage: float = 0.005
 
 
 @dataclass
@@ -53,7 +53,10 @@ class OnlinePromotionDecision:
 
 class OnlineChampionChallenger:
     """Shadow-first online promotion with hard live safety gates and rollback."""
-    def __init__(self, champion: PolicyRuntime, guardrails: LiveGuardrails | None = None):
+
+    def __init__(
+        self, champion: PolicyRuntime, guardrails: LiveGuardrails | None = None
+    ):
         champion.active, champion.shadow = True, False
         self.champion = champion
         self.challenger: PolicyRuntime | None = None
@@ -70,7 +73,11 @@ class OnlineChampionChallenger:
         if self.halted:
             return 0.0
         action = float(policy.action_fn(state))
-        return float(np.clip(action, -self.guardrails.max_action_abs, self.guardrails.max_action_abs))
+        return float(
+            np.clip(
+                action, -self.guardrails.max_action_abs, self.guardrails.max_action_abs
+            )
+        )
 
     @staticmethod
     def _metrics(outcomes: list[OnlineOutcome]) -> tuple[float, float]:
@@ -78,12 +85,18 @@ class OnlineChampionChallenger:
         if rewards.size == 0:
             return 0.0, -1.0
         curve = np.cumprod(1 + rewards)
-        return float(curve[-1] - 1), float(np.min(curve / np.maximum.accumulate(curve) - 1))
+        return float(curve[-1] - 1), float(
+            np.min(curve / np.maximum.accumulate(curve) - 1)
+        )
 
     def record_outcome(self, outcome: OnlineOutcome) -> None:
         if outcome.available_at < outcome.decision_time:
             raise ValueError("outcome cannot be available before decision")
-        target = self.champion if outcome.policy_version == self.champion.version else self.challenger
+        target = (
+            self.champion
+            if outcome.policy_version == self.champion.version
+            else self.challenger
+        )
         if target is None:
             raise ValueError("unknown policy version")
         target.record(outcome)
@@ -98,17 +111,36 @@ class OnlineChampionChallenger:
         if self.challenger is None:
             raise RuntimeError("no challenger loaded")
         if len(self.challenger.outcomes) < self.guardrails.min_observations:
-            return OnlinePromotionDecision(False, "insufficient challenger observations", self.champion.version, self.challenger.version, 0, 0, -1)
+            return OnlinePromotionDecision(
+                False,
+                "insufficient challenger observations",
+                self.champion.version,
+                self.challenger.version,
+                0,
+                0,
+                -1,
+            )
         candidate_return, candidate_dd = self._metrics(self.challenger.outcomes)
         active_return, _ = self._metrics(self.champion.outcomes)
-        safe = abs(candidate_dd) <= self.guardrails.max_drawdown and candidate_return - active_return >= self.guardrails.min_advantage
+        safe = (
+            abs(candidate_dd) <= self.guardrails.max_drawdown
+            and candidate_return - active_return >= self.guardrails.min_advantage
+        )
         if safe:
             old = self.champion
             self.champion = self.challenger
             self.champion.active, self.champion.shadow = True, False
             self.challenger = old
             self.challenger.active, self.challenger.shadow = False, True
-        return OnlinePromotionDecision(safe, "promoted" if safe else "failed live gates", self.champion.version, self.challenger.version, candidate_return, active_return, candidate_dd)
+        return OnlinePromotionDecision(
+            safe,
+            "promoted" if safe else "failed live gates",
+            self.champion.version,
+            self.challenger.version,
+            candidate_return,
+            active_return,
+            candidate_dd,
+        )
 
     def rollback(self) -> None:
         if self.challenger is None:

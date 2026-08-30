@@ -27,13 +27,26 @@ def test_event_bus_rejects_non_monotonic_sequence():
 
 def test_contract_master_filters_active_contracts():
     master = ContractMaster()
-    master.upsert(OptionContractRecord("A1", "A", date(2026, 2, 1), 100, "call", 100, 100, "active", True, "american"))
+    master.upsert(
+        OptionContractRecord(
+            "A1",
+            "A",
+            date(2026, 2, 1),
+            100,
+            "call",
+            100,
+            100,
+            "active",
+            True,
+            "american",
+        )
+    )
     assert len(master.active_for("A", date(2026, 1, 1))) == 1
 
 
 def test_offline_rl_report_requires_support():
     t = LoggedTransition(0, 1, 1.0, 1, False, 1.0, 1)
-    report = OfflineRLEvaluator(min_support_rate=.5).evaluate([t], lambda _: 1)
+    report = OfflineRLEvaluator(min_support_rate=0.5).evaluate([t], lambda _: 1)
     assert report.safe and report.weighted_importance_sampling == 1.0
 
 
@@ -44,9 +57,15 @@ def test_hardware_benchmark_reports_latency():
 
 def test_reconciliation_blocks_on_fill_drift():
     class Broker:
-        def submit_leg(self, leg): return leg.client_id
-        def cancel_leg(self, client_id): pass
-        def snapshot(self): return BrokerSnapshot((BrokerLegState("x", 0, "submitted"),), {}, 0, 0)
+        def submit_leg(self, leg):
+            return leg.client_id
+
+        def cancel_leg(self, client_id):
+            pass
+
+        def snapshot(self):
+            return BrokerSnapshot((BrokerLegState("x", 0, "submitted"),), {}, 0, 0)
+
     engine = MultiLegExecutionEngine(Broker(), GreeksRiskGate())
     package = MultiLegPackage("p", [Leg("x", "A", 1, 1)])
     assert engine.register(package, Greeks())[0]

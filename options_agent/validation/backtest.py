@@ -29,12 +29,21 @@ class BacktestResult:
 
 
 class OptionsBacktester:
-    def __init__(self, initial_cash: float = 100_000.0, commission_per_contract: float = 0.65, slippage_bps: float = 5.0):
+    def __init__(
+        self,
+        initial_cash: float = 100_000.0,
+        commission_per_contract: float = 0.65,
+        slippage_bps: float = 5.0,
+    ):
         self.initial_cash = initial_cash
         self.commission = commission_per_contract
         self.slippage_bps = slippage_bps
 
-    def run(self, quotes_by_time: dict[datetime, list[Quote]], intents_by_time: dict[datetime, list[OrderIntent]]) -> BacktestResult:
+    def run(
+        self,
+        quotes_by_time: dict[datetime, list[Quote]],
+        intents_by_time: dict[datetime, list[OrderIntent]],
+    ) -> BacktestResult:
         cash = self.initial_cash
         curve: list[tuple[datetime, float]] = []
         fills: list[Fill] = []
@@ -45,7 +54,9 @@ class OptionsBacktester:
                 if q is None:
                     continue
                 if intent.limit_price is not None:
-                    executable = (intent.side == Side.BUY and q.ask <= intent.limit_price) or (intent.side == Side.SELL and q.bid >= intent.limit_price)
+                    executable = (
+                        intent.side == Side.BUY and q.ask <= intent.limit_price
+                    ) or (intent.side == Side.SELL and q.bid >= intent.limit_price)
                     if not executable:
                         continue
                 base = q.ask if intent.side == Side.BUY else q.bid
@@ -54,14 +65,39 @@ class OptionsBacktester:
                 gross = px * intent.quantity * intent.contract.multiplier
                 fee = self.commission * intent.quantity
                 cash += -gross - fee if intent.side == Side.BUY else gross - fee
-                fills.append(Fill(ts, intent.contract.symbol, intent.side.value, intent.quantity, px, fee, slip))
+                fills.append(
+                    Fill(
+                        ts,
+                        intent.contract.symbol,
+                        intent.side.value,
+                        intent.quantity,
+                        px,
+                        fee,
+                        slip,
+                    )
+                )
             curve.append((ts, cash))
         series = pd.Series({ts: value for ts, value in curve}, dtype=float)
         rets = series.pct_change().dropna()
-        sharpe = float((rets.mean() / rets.std()) * (252 ** 0.5)) if len(rets) > 1 and rets.std() > 0 else 0.0
+        sharpe = (
+            float((rets.mean() / rets.std()) * (252**0.5))
+            if len(rets) > 1 and rets.std() > 0
+            else 0.0
+        )
         dd = series / series.cummax() - 1.0
-        return BacktestResult(series, fills, float(series.iloc[-1] / self.initial_cash - 1 if len(series) else 0), sharpe, float(dd.min() if len(dd) else 0))
+        return BacktestResult(
+            series,
+            fills,
+            float(series.iloc[-1] / self.initial_cash - 1 if len(series) else 0),
+            sharpe,
+            float(dd.min() if len(dd) else 0),
+        )
 
 
 def result_json(result: BacktestResult) -> dict:
-    return {"total_return": result.total_return, "sharpe": result.sharpe, "max_drawdown": result.max_drawdown, "fills": [asdict(x) for x in result.fills]}
+    return {
+        "total_return": result.total_return,
+        "sharpe": result.sharpe,
+        "max_drawdown": result.max_drawdown,
+        "fills": [asdict(x) for x in result.fills],
+    }

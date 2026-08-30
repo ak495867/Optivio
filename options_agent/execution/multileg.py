@@ -38,12 +38,23 @@ class Leg:
     def apply(self, event: LifecycleEvent, fill_quantity: int = 0) -> None:
         if event == LifecycleEvent.SUBMIT_ACK and self.state == LegState.PLANNED:
             self.state = LegState.SUBMITTED
-        elif event == LifecycleEvent.FILL and self.state in {LegState.SUBMITTED, LegState.PARTIALLY_FILLED}:
+        elif event == LifecycleEvent.FILL and self.state in {
+            LegState.SUBMITTED,
+            LegState.PARTIALLY_FILLED,
+        }:
             if fill_quantity <= 0 or self.filled + fill_quantity > self.quantity:
                 raise ValueError("invalid fill quantity")
             self.filled += fill_quantity
-            self.state = LegState.FILLED if self.filled == self.quantity else LegState.PARTIALLY_FILLED
-        elif event == LifecycleEvent.CANCEL_ACK and self.state in {LegState.SUBMITTED, LegState.PARTIALLY_FILLED, LegState.CANCEL_PENDING}:
+            self.state = (
+                LegState.FILLED
+                if self.filled == self.quantity
+                else LegState.PARTIALLY_FILLED
+            )
+        elif event == LifecycleEvent.CANCEL_ACK and self.state in {
+            LegState.SUBMITTED,
+            LegState.PARTIALLY_FILLED,
+            LegState.CANCEL_PENDING,
+        }:
             self.state = LegState.CANCELLED
         elif event == LifecycleEvent.REJECT:
             self.state = LegState.REJECTED
@@ -64,10 +75,21 @@ class Greeks:
     rho: float = 0.0
 
     def __add__(self, other: Greeks) -> Greeks:
-        return Greeks(self.delta + other.delta, self.gamma + other.gamma, self.theta + other.theta, self.vega + other.vega, self.rho + other.rho)
+        return Greeks(
+            self.delta + other.delta,
+            self.gamma + other.gamma,
+            self.theta + other.theta,
+            self.vega + other.vega,
+            self.rho + other.rho,
+        )
 
     def scale(self, multiplier: float) -> Greeks:
-        return Greeks(*(multiplier * x for x in (self.delta, self.gamma, self.theta, self.vega, self.rho)))
+        return Greeks(
+            *(
+                multiplier * x
+                for x in (self.delta, self.gamma, self.theta, self.vega, self.rho)
+            )
+        )
 
 
 @dataclass(frozen=True)
@@ -86,7 +108,13 @@ class GreeksRiskGate:
     def approve(self, current: Greeks, proposed_change: Greeks) -> tuple[bool, str]:
         total = current + proposed_change
         limits = self.limits
-        checks = (("delta", total.delta, limits.max_abs_delta), ("gamma", total.gamma, limits.max_abs_gamma), ("theta", total.theta, limits.max_abs_theta), ("vega", total.vega, limits.max_abs_vega), ("rho", total.rho, limits.max_abs_rho))
+        checks = (
+            ("delta", total.delta, limits.max_abs_delta),
+            ("gamma", total.gamma, limits.max_abs_gamma),
+            ("theta", total.theta, limits.max_abs_theta),
+            ("vega", total.vega, limits.max_abs_vega),
+            ("rho", total.rho, limits.max_abs_rho),
+        )
         for name, value, limit in checks:
             if abs(value) > limit:
                 return False, f"{name} limit exceeded"

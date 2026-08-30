@@ -29,7 +29,12 @@ class AlpacaPaperAdapter:
         if self._trading is None:
             self.connect()
         account = self._trading.get_account()
-        return RiskSnapshot(equity=float(account.equity), buying_power=float(account.buying_power), open_option_notional=0.0, daily_loss=0.0)
+        return RiskSnapshot(
+            equity=float(account.equity),
+            buying_power=float(account.buying_power),
+            open_option_notional=0.0,
+            daily_loss=0.0,
+        )
 
     def get_option_bars(self, symbols: list[str], start: datetime, end: datetime):
         """Fetch historical bars inside an explicit closed interval; caller persists provenance."""
@@ -51,8 +56,19 @@ class AlpacaPaperAdapter:
             self.connect()
         from alpaca.trading.enums import OrderSide, TimeInForce
         from alpaca.trading.requests import LimitOrderRequest, MarketOrderRequest
+
         side = OrderSide.BUY if intent.side.value == "buy" else OrderSide.SELL
         tif = TimeInForce.DAY if intent.time_in_force == "day" else TimeInForce.GTC
-        kwargs = {"symbol": intent.contract.symbol, "qty": intent.quantity, "side": side, "time_in_force": tif, "client_order_id": intent.client_order_id}
-        request = LimitOrderRequest(limit_price=intent.limit_price, **kwargs) if intent.limit_price else MarketOrderRequest(**kwargs)
+        kwargs = {
+            "symbol": intent.contract.symbol,
+            "qty": intent.quantity,
+            "side": side,
+            "time_in_force": tif,
+            "client_order_id": intent.client_order_id,
+        }
+        request = (
+            LimitOrderRequest(limit_price=intent.limit_price, **kwargs)
+            if intent.limit_price
+            else MarketOrderRequest(**kwargs)
+        )
         return self._trading.submit_order(request)

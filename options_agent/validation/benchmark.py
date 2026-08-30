@@ -20,7 +20,9 @@ class BenchmarkReport:
     zero_shot: bool
 
 
-def zero_shot_metrics(returns: np.ndarray, latencies_ns: np.ndarray, name: str = "frozen-model") -> BenchmarkReport:
+def zero_shot_metrics(
+    returns: np.ndarray, latencies_ns: np.ndarray, name: str = "frozen-model"
+) -> BenchmarkReport:
     r = np.asarray(returns, dtype=float)
     l = np.asarray(latencies_ns, dtype=float)
     if r.size == 0 or l.size == 0:
@@ -29,7 +31,18 @@ def zero_shot_metrics(returns: np.ndarray, latencies_ns: np.ndarray, name: str =
     dd = curve / np.maximum.accumulate(curve) - 1.0
     sd = r.std(ddof=1) if r.size > 1 else 0.0
     p50, p95, p99 = [float(np.percentile(l, q) / 1000.0) for q in (50, 95, 99)]
-    return BenchmarkReport(name, int(r.size), float(r.mean()), float(np.sqrt(252) * r.mean() / sd) if sd else 0.0, float((r > 0).mean()), float(dd.min()), p50, p95, p99, True)
+    return BenchmarkReport(
+        name,
+        int(r.size),
+        float(r.mean()),
+        float(np.sqrt(252) * r.mean() / sd) if sd else 0.0,
+        float((r > 0).mean()),
+        float(dd.min()),
+        p50,
+        p95,
+        p99,
+        True,
+    )
 
 
 def benchmark_callable(fn, iterations: int = 1000) -> np.ndarray:

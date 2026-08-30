@@ -10,7 +10,10 @@ from options_agent.validation.evolutionary import (
 def make_data():
     rng = np.random.default_rng(3)
     x = rng.normal(size=(24, 3, 8, 6))
-    y = {name: rng.normal(size=(24, 3)) for name in ("direction", "expected_move", "volatility", "liquidity")}
+    y = {
+        name: rng.normal(size=(24, 3))
+        for name in ("direction", "expected_move", "volatility", "liquidity")
+    }
     return x, y
 
 
@@ -34,8 +37,10 @@ def test_tokenizer_cannot_transform_before_fit():
 
 def test_evolution_is_reproducible_and_bounded():
     cfg = EvolutionConfig(population=12, generations=5, elite=2, seed=9)
+
     def objective(v):
-        return -float(np.sum((v - .25) ** 2))
+        return -float(np.sum((v - 0.25) ** 2))
+
     a = OptivioEvolutionaryOptimizer(np.zeros(3), np.ones(3), cfg).fit(objective)
     b = OptivioEvolutionaryOptimizer(np.zeros(3), np.ones(3), cfg).fit(objective)
     assert np.all(a.values >= 0) and np.all(a.values <= 1)

@@ -25,10 +25,21 @@ class ScenarioResult:
     breached: bool
 
 
-def evaluate_scenarios(greeks: Greeks, scenarios: list[Scenario], max_loss: float) -> Mapping[str, ScenarioResult]:
+def evaluate_scenarios(
+    greeks: Greeks, scenarios: list[Scenario], max_loss: float
+) -> Mapping[str, ScenarioResult]:
     results: dict[str, ScenarioResult] = {}
     for scenario in scenarios:
-        pnl = greeks.delta * scenario.delta_shock + .5 * greeks.gamma * scenario.delta_shock**2 + greeks.vega * scenario.vega_shock + greeks.theta * scenario.theta_shock + greeks.rho * scenario.rho_shock + greeks.gamma * scenario.gamma_shock
+        pnl = (
+            greeks.delta * scenario.delta_shock
+            + 0.5 * greeks.gamma * scenario.delta_shock**2
+            + greeks.vega * scenario.vega_shock
+            + greeks.theta * scenario.theta_shock
+            + greeks.rho * scenario.rho_shock
+            + greeks.gamma * scenario.gamma_shock
+        )
         adjusted_loss = max(0.0, -pnl) * max(1.0, scenario.liquidity_multiplier)
-        results[scenario.name] = ScenarioResult(scenario.name, pnl, adjusted_loss, adjusted_loss > max_loss)
+        results[scenario.name] = ScenarioResult(
+            scenario.name, pnl, adjusted_loss, adjusted_loss > max_loss
+        )
     return results

@@ -19,7 +19,13 @@ def ts(day):
 
 
 def contract():
-    return OptionContract(symbol="AAPL250221C00200000", underlying="AAPL", expiration=ts(21), strike=200, right=OptionRight.CALL)
+    return OptionContract(
+        symbol="AAPL250221C00200000",
+        underlying="AAPL",
+        expiration=ts(21),
+        strike=200,
+        right=OptionRight.CALL,
+    )
 
 
 def test_future_availability_rejected():
@@ -40,10 +46,30 @@ def test_quote_rejects_crossed_market():
 
 
 def test_order_intent_is_paper_only():
-    intent = OrderIntent(client_order_id="x", contract=contract(), side=Side.BUY, quantity=1, limit_price=2.0, rationale="test", model_version="v1", signal_asof=ts(2), created_at=ts(2))
+    intent = OrderIntent(
+        client_order_id="x",
+        contract=contract(),
+        side=Side.BUY,
+        quantity=1,
+        limit_price=2.0,
+        rationale="test",
+        model_version="v1",
+        signal_asof=ts(2),
+        created_at=ts(2),
+    )
     assert intent.mode.value == "paper"
 
 
 def test_alt_data_schema_bounds():
     with pytest.raises(ValueError):
-        AltDataAssessment(topic="x", sentiment=2, relevance=.5, novelty=.5, event_time=ts(1).isoformat(), source_ids=["s"], uncertainty=.2, abstain=True, rationale="x")
+        AltDataAssessment(
+            topic="x",
+            sentiment=2,
+            relevance=0.5,
+            novelty=0.5,
+            event_time=ts(1).isoformat(),
+            source_ids=["s"],
+            uncertainty=0.2,
+            abstain=True,
+            rationale="x",
+        )

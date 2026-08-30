@@ -31,8 +31,16 @@ class OptivioEvolutionaryOptimizer:
     intentionally absent from `fit`; callers may evaluate the selected genome
     once on an untouched test or zero-shot block.
     """
-    def __init__(self, lower: np.ndarray, upper: np.ndarray, config: EvolutionConfig | None = None):
-        self.lower, self.upper = np.asarray(lower, dtype=float), np.asarray(upper, dtype=float)
+
+    def __init__(
+        self,
+        lower: np.ndarray,
+        upper: np.ndarray,
+        config: EvolutionConfig | None = None,
+    ):
+        self.lower, self.upper = np.asarray(lower, dtype=float), np.asarray(
+            upper, dtype=float
+        )
         self.config = config or EvolutionConfig()
         if self.lower.shape != self.upper.shape or np.any(self.lower >= self.upper):
             raise ValueError("invalid genome bounds")
@@ -42,7 +50,10 @@ class OptivioEvolutionaryOptimizer:
         self.history: list[float] = []
 
     def _initial(self, rng: np.random.Generator) -> list[Genome]:
-        return [Genome(rng.uniform(self.lower, self.upper)) for _ in range(self.config.population)]
+        return [
+            Genome(rng.uniform(self.lower, self.upper))
+            for _ in range(self.config.population)
+        ]
 
     def _select(self, pop: list[Genome], rng: np.random.Generator) -> Genome:
         indices = rng.choice(len(pop), size=self.config.tournament, replace=False)
@@ -53,28 +64,43 @@ class OptivioEvolutionaryOptimizer:
         mask = rng.random(a.values.size) < 0.5
         values = np.where(mask, a.values, b.values).astype(float)
         mutate = rng.random(values.size) < self.config.mutation_rate
-        values[mutate] += rng.normal(0, self.config.mutation_scale, mutate.sum()) * (self.upper - self.lower)[mutate]
+        values[mutate] += (
+            rng.normal(0, self.config.mutation_scale, mutate.sum())
+            * (self.upper - self.lower)[mutate]
+        )
         return Genome(np.clip(values, self.lower, self.upper))
 
     def fit(self, objective) -> Genome:
         rng = np.random.default_rng(self.config.seed)
         pop = self._initial(rng)
         for _ in range(self.config.generations):
-            scored = [Genome(g.values, float(objective(g.values)), float(objective(g.values))) for g in pop]
+            scored = [
+                Genome(g.values, float(objective(g.values)), float(objective(g.values)))
+                for g in pop
+            ]
             scored.sort(key=lambda g: g.fitness, reverse=True)
             self.history.append(scored[0].fitness)
             if self.best is None or scored[0].fitness > self.best.fitness:
                 self.best = scored[0]
             next_pop = scored[: self.config.elite]
             while len(next_pop) < self.config.population:
-                next_pop.append(self._child(self._select(scored, rng), self._select(scored, rng), rng))
+                next_pop.append(
+                    self._child(
+                        self._select(scored, rng), self._select(scored, rng), rng
+                    )
+                )
             pop = next_pop
         if self.best is None:
             raise RuntimeError("evolution did not produce a genome")
         return self.best
 
 
-def risk_adjusted_objective(returns: np.ndarray, turnover: np.ndarray, drawdown_penalty: float = 1.0, turnover_penalty: float = 0.1) -> float:
+def risk_adjusted_objective(
+    returns: np.ndarray,
+    turnover: np.ndarray,
+    drawdown_penalty: float = 1.0,
+    turnover_penalty: float = 0.1,
+) -> float:
     r, t = np.asarray(returns, dtype=float), np.asarray(turnover, dtype=float)
     if r.size == 0 or r.shape != t.shape:
         raise ValueError("returns and turnover must be non-empty and aligned")

@@ -26,6 +26,7 @@ class ExecutionEvent:
 
 class ExecutionStateStore:
     """Append-only JSONL state with hash chaining and delayed model feedback."""
+
     def __init__(self, path: str | Path):
         self.path = Path(path)
         self.path.parent.mkdir(parents=True, exist_ok=True)
@@ -93,5 +94,7 @@ class ExecutionStateStore:
             "outcome_count": float(len(pnl)),
             "realized_pnl_sum": float(sum(pnl)),
             "realized_pnl_mean": float(sum(pnl) / len(pnl)) if pnl else 0.0,
-            "win_rate": float(sum(value > 0 for value in pnl) / len(pnl)) if pnl else 0.0,
+            "win_rate": (
+                float(sum(value > 0 for value in pnl) / len(pnl)) if pnl else 0.0
+            ),
         }

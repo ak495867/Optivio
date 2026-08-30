@@ -48,17 +48,27 @@ class MultiLegPackage:
 
 class MultiLegExecutionEngine:
     """Stateful package manager; any uncertain broker state blocks new exposure."""
-    def __init__(self, broker: PaperBroker, greeks_gate: GreeksRiskGate | None = None, reconciler: BrokerReconciler | None = None):
+
+    def __init__(
+        self,
+        broker: PaperBroker,
+        greeks_gate: GreeksRiskGate | None = None,
+        reconciler: BrokerReconciler | None = None,
+    ):
         self.broker, self.greeks_gate = broker, greeks_gate or GreeksRiskGate()
         self.reconciler = reconciler or BrokerReconciler()
         self.packages: dict[str, MultiLegPackage] = {}
         self.submitted_ids: set[str] = set()
         self.reconciliation_blocked = True
 
-    def register(self, package: MultiLegPackage, proposed_greeks: Greeks) -> tuple[bool, str]:
+    def register(
+        self, package: MultiLegPackage, proposed_greeks: Greeks
+    ) -> tuple[bool, str]:
         if package.package_id in self.packages:
             return False, "duplicate package"
-        approved, reason = self.greeks_gate.approve(package.current_greeks, proposed_greeks)
+        approved, reason = self.greeks_gate.approve(
+            package.current_greeks, proposed_greeks
+        )
         if not approved:
             return False, reason
         self.packages[package.package_id] = package

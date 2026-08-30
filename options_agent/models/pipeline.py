@@ -21,14 +21,21 @@ class OptivioDecision:
 
 
 class OptivioSignalPipeline:
-    def __init__(self, model: OptivioHybridModel, regime_classifier: ActiveRegimeClassifier | None = None, portfolio: PortfolioManager | None = None):
+    def __init__(
+        self,
+        model: OptivioHybridModel,
+        regime_classifier: ActiveRegimeClassifier | None = None,
+        portfolio: PortfolioManager | None = None,
+    ):
         self.model = model
         self.regime_classifier = regime_classifier or ActiveRegimeClassifier()
         self.portfolio = portfolio or PortfolioManager()
 
-    def decide(self, x: np.ndarray, trend: float, realized_volatility: float) -> OptivioDecision:
+    def decide(
+        self, x: np.ndarray, trend: float, realized_volatility: float
+    ) -> OptivioDecision:
         output: HybridOutput = self.model.predict(x)
-                                                                                               
+
         scores = output.direction.mean(axis=0) * output.liquidity.mean(axis=0)
         expected = output.expected_move.mean(axis=0)
         volatility = output.volatility.mean(axis=0)
@@ -36,4 +43,6 @@ class OptivioSignalPipeline:
         regime = self.regime_classifier.classify(trend, realized_volatility)
         scale = self.regime_classifier.exposure_scale(regime)
         weights = self.portfolio.target_weights(scores, volatility, scale)
-        return OptivioDecision(scores, expected, volatility, liquidity, regime, scale, weights)
+        return OptivioDecision(
+            scores, expected, volatility, liquidity, regime, scale, weights
+        )

@@ -17,13 +17,15 @@ from options_agent.models.parallel_engine import ParallelSignalEngine
 
 
 def test_parity_arbitrage_detects_edge():
-    signal = SurfaceArbitrageModel(min_edge=.01).put_call_parity(12, 8, 100, 100, 1)
+    signal = SurfaceArbitrageModel(min_edge=0.01).put_call_parity(12, 8, 100, 100, 1)
     assert signal is not None and signal.kind == "put_call_parity"
 
 
 def test_hmm_filters_probabilities():
-    hmm = GaussianHMM(states=2, iterations=3).fit(np.r_[np.full(20, -.1), np.full(20, .1)])
-    probs = hmm.filtered_probabilities(np.array([-.1, .1]))
+    hmm = GaussianHMM(states=2, iterations=3).fit(
+        np.r_[np.full(20, -0.1), np.full(20, 0.1)]
+    )
+    probs = hmm.filtered_probabilities(np.array([-0.1, 0.1]))
     assert probs.shape == (2, 2) and np.allclose(probs.sum(axis=1), 1)
 
 
@@ -35,7 +37,13 @@ def test_pairs_model_signal():
 
 
 def test_parallel_engine_isolates_failure():
-    engine = ParallelSignalEngine({"ok": lambda _: (1.0, .8), "bad": lambda _: (_ for _ in ()).throw(RuntimeError())}, workers=2)
+    engine = ParallelSignalEngine(
+        {
+            "ok": lambda _: (1.0, 0.8),
+            "bad": lambda _: (_ for _ in ()).throw(RuntimeError()),
+        },
+        workers=2,
+    )
     try:
         signals = engine.infer(None)
         assert len(signals) == 2 and any(s.error for s in signals)
@@ -47,6 +55,9 @@ def test_multileg_lifecycle_and_greeks_gate():
     leg = Leg("a", "A", 1, 2)
     leg.apply(LifecycleEvent.SUBMIT_ACK)
     leg.apply(LifecycleEvent.FILL, 1)
-    assert leg.state == LegState.PARTIALLY_FILLED and strategy_state([leg]) == "partially_filled"
+    assert (
+        leg.state == LegState.PARTIALLY_FILLED
+        and strategy_state([leg]) == "partially_filled"
+    )
     ok, reason = GreeksRiskGate().approve(Greeks(), Greeks(delta=2000))
     assert not ok and "delta" in reason
