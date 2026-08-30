@@ -4,8 +4,9 @@ import os
 from datetime import datetime
 from typing import Any
 
-from options_agent.contracts import OrderIntent, RiskSnapshot, RunMode
 from alpaca.data.timeframe import Timeframe
+
+from options_agent.contracts import OrderIntent, RiskSnapshot, RunMode
 
 class AlpacaPaperAdapter:
     def __init__(self, api_key: str | None = None, secret_key: str | None = None):
