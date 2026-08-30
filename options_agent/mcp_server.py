@@ -228,20 +228,20 @@ def serve(mcp_app: Any | None = None) -> Any:
     try:
         try:
             from mcp.server.mcpserver import MCPServer
+
             _MCPApp = MCPServer
         except ImportError:
-            from mcp.server.fastmcp import FastMCP
+            from mcp.server.fastmcp import FastMCP  # type: ignore[attr-defined]
+
             _MCPApp = FastMCP
-    except ImportError as exc:  # pragma: no cover - exercised only when SDK absent
+    except ImportError as exc:  # pragma: no cover
         raise ImportError(
             "Install the optional MCP dependency to run the Optivio MCP server: "
             "`pip install 'optivio[mcp]'` (or `mcp`)."
         ) from exc
-
     app = _MCPApp("optivio")
     _register_with_mcp(app)
     return app
-
 
 
 def main() -> None:
